@@ -30,7 +30,7 @@ module multiplier #
     reg [C_WIDTH-1:0] out_reg;
     
     // Ready to accept new inputs
-    always @(negedge ctl_clk) begin
+    always @(posedge ctl_clk) begin
         if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
             ready_reg <= 1'b1;
         end else begin
@@ -76,6 +76,7 @@ module multiplier #
                 a_reg <= a;
                 b_reg <= b;
                 y_reg[2*C_WIDTH-1:C_WIDTH] <= (b[0] == 1'b1) ? a : 0;
+                y_reg[2*C_WIDTH]           <= 1'b0;
             end else if (state_reg == MUL_ST_CAL) begin
                 a_reg <= a_reg;
                 b_reg <= b_reg;
