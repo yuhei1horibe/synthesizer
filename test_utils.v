@@ -20,16 +20,22 @@ module mul_test;
     initial begin
         rst     <= 1'b0;
         trigger <= 1'b0;
-        a   <= 0;
-        b   <= 0;
+        a       <= 0;
+        b       <= 0;
         clock   <= 0;
 
         #15;
-        rst  <= 1'b1;
-        a    <= 8'hc;
-        b    <= 8'h6;
+        rst     <= 1'b1;
+        a       <= 8'hc;
+        b       <= 8'h6;
 
         #10;
+        trigger <= 1'b1;
+        #10;
+        trigger <= 1'b0;
+        #90;
+        a       <= 8'hd;
+        b       <= 8'h17;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;

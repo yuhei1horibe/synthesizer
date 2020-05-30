@@ -24,7 +24,7 @@ module multiplier #
     
     reg [2:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
-    reg [C_WIDTH-1:0] b_reg;
+    reg [C_WIDTH  :0] b_reg;
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
@@ -82,7 +82,7 @@ module multiplier #
                 b_reg <= b_reg;
                 
                 // Calculation
-                y_reg[C_WIDTH-1:0] <= y_reg[C_WIDTH:1];
+                y_reg[C_WIDTH-1:0]       <= y_reg[C_WIDTH:1];
                 y_reg[2*C_WIDTH:C_WIDTH] <= y_reg[2*C_WIDTH:C_WIDTH+1] + ((b_reg[count+1] == 1'b1) ? a_reg : 0);
             end else begin
                 a_reg <= a_reg;
@@ -94,7 +94,7 @@ module multiplier #
     
     // Counter for calculation
     always @(negedge ctl_clk) begin
-        if (reset && (state_reg == MUL_ST_CAL)) begin
+        if (reset && (state_reg == MUL_ST_CAL) && (count < C_WIDTH)) begin
             count <= count + 1;
         end else begin
             count <= 0;
