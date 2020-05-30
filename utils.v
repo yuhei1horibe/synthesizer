@@ -1,6 +1,7 @@
 module multiplier #
     (
-        parameter integer C_WIDTH = 32
+        parameter integer C_WIDTH     = 32,
+        parameter integer FIXED_POINT = 8
     )
     (
         input wire [C_WIDTH - 1:0] a,
@@ -24,7 +25,7 @@ module multiplier #
     
     reg [2:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
-    reg [C_WIDTH  :0] b_reg;
+    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
@@ -108,12 +109,12 @@ module multiplier #
             done_reg <= 0;
         end else begin
             if (done_sig == 1) begin
-                out_reg  <= y_reg[C_WIDTH-1:0];
+                // Fixed point calculation
+                out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
                 done_reg <= 1'b1;
             end else begin
                 out_reg  <= out_reg;
                 done_reg <= 1'b0;
-                //out_reg <= 0; should be like this
             end
         end
     end

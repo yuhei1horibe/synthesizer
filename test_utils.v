@@ -1,7 +1,8 @@
 `timescale 1 ns/1 ns
 
 module mul_test;
-    localparam BITWIDTH = 8;
+    localparam BITWIDTH    = 8;
+    localparam FIXED_POINT = 4;
     reg clock;
     wire ready;
     wire done;
@@ -26,22 +27,24 @@ module mul_test;
 
         #15;
         rst     <= 1'b1;
-        a       <= 8'hc;
-        b       <= 8'h6;
+        a       <= 8'h38; // 3.5
+        b       <= 8'h20; // 2.0
 
         #10;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
         #90;
-        a       <= 8'hd;
-        b       <= 8'h17;
+        a       <= 8'h24; // 2.25
+        b       <= 8'h70; // 7.0
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
+        #100;
+        $finish;
     end
 
-    multiplier #(.C_WIDTH(BITWIDTH)) UUT (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT)) UUT (
         .a(a),
         .b(b),
         .y(y),
