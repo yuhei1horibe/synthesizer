@@ -100,16 +100,16 @@ endmodule
 
 module cl_adder #(parameter C_WIDTH = 32)
 (
-    input  [C_WIDTH-1:0]a,
-    input  [C_WIDTH-1:0]b,
-    output [C_WIDTH:0]y
+    input  [C_WIDTH-1:0] a,
+    input  [C_WIDTH-1:0] b,
+    output [C_WIDTH:0]   y
 );
     genvar i;
     for (i = 0; i < (C_WIDTH/4); i = i+1) begin: add_digit
         wire c_out;
         if (i == 0) begin
             cl_adder_4 U_adder (
-                .c_in  (0),
+                .c_in  (1'b0),
                 .a     (a[(i+1)*4-1:i*4]),
                 .b     (b[(i+1)*4-1:i*4]),
                 .y     (y[(i+1)*4-1:i*4]),
@@ -129,7 +129,7 @@ module cl_adder #(parameter C_WIDTH = 32)
 endmodule
 
 // Multiplier
-module radder_multiplier #
+module matrix_multiplier #
     (
         parameter C_WIDTH     = 32,
         parameter USE_CLA     = 1
@@ -137,16 +137,33 @@ module radder_multiplier #
     (
         input wire [C_WIDTH-1:0] a,
         input wire [C_WIDTH-1:0] b,
-        output wire [2*C_WIDTH-1:0] y
+        output wire [2*C_WIDTH-1:0] y,
+        input wire  ctl_clk,
+        input wire  trigger,
+        output wire ready,
+        output wire done,
+        input wire  reset
     );
     genvar i;
     genvar j;
+
+    localparam num_cycles = 4;
+
+    wire [2*C_WIDTH-1:0] result;
+    wire                 done_sig;
+
+    reg [C_WIDTH-1:0]    count;
+    reg                  ready_reg;
+    reg                  done_reg;
+    reg [C_WIDTH-1:0]    a_reg;
+    reg [C_WIDTH-1:0]    b_reg;
+    reg [2*C_WIDTH-1:0]  out_reg;
 
     for (i = 0; i < C_WIDTH; i = i+1) begin: mul_digit
         wire [C_WIDTH:0]sum;
         wire [C_WIDTH-1:0] a_1;
         for (j = 0; j < C_WIDTH; j = j+1) begin
-            assign mul_digit[i].a_1[j] = a[j] & b[i];
+            assign mul_digit[i].a_1[j] = a_reg[j] & b_reg[i];
         end
 
         if (i == 0) begin
@@ -172,11 +189,75 @@ module radder_multiplier #
 
     for (i = 0; i <= C_WIDTH; i = i+1) begin: mul_result
         if (i < C_WIDTH) begin
-            assign y[i] = mul_digit[i].sum[0];
+            assign result[i] = mul_digit[i].sum[0];
         end else begin
-            assign y[2*C_WIDTH-1:C_WIDTH] = mul_digit[C_WIDTH-1].sum[C_WIDTH:1];
+            assign result[2*C_WIDTH-1:C_WIDTH] = mul_digit[C_WIDTH-1].sum[C_WIDTH:1];
         end
     end
+
+    // Ready to accept new inputs
+    always @(posedge ctl_clk) begin
+        if (reset && (count == 0)) begin
+            ready_reg <= 1'b1;
+        end else begin
+            ready_reg <= 1'b0;
+        end
+    end
+    assign ready = ready_reg;
+
+    // Input register
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            a_reg <= 0;
+            b_reg <= 0;
+        end else begin
+            if (ready_reg && trigger) begin
+                a_reg <= a;
+                b_reg <= b;
+            end else begin
+                a_reg <= a_reg;
+                b_reg <= b_reg;
+            end
+        end
+    end
+
+    // Done signal
+    always @(posedge ctl_clk) begin
+        if (reset && done_sig) begin
+            done_reg <= 1'b1;
+        end else begin
+            done_reg <= 1'b0;
+        end
+    end
+    assign done     = done_reg;
+    assign done_sig = (count >= (num_cycles - 1));
+
+    // Counter
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            count <= 0;
+        end else begin
+            if ((count == 0) && (trigger == 0)) begin
+                count <= 0;
+            end else begin
+                count <= done_sig ? 0 : (count + 1);
+            end
+        end
+    end
+
+    // This is to stabilize output
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            out_reg <= 0;
+        end else begin
+            if (done_sig) begin
+                out_reg <= result;
+            end else begin
+                out_reg <= out_reg;
+            end
+        end
+    end
+    assign y = out_reg;
 endmodule
 
 module multi_cycle_multiplier #
@@ -194,17 +275,17 @@ module multi_cycle_multiplier #
         output wire done,
         input wire  reset
     );
-    localparam MUL_ST_RESET = 3'h0;
-    localparam MUL_ST_CAL   = 3'h1;
-    localparam MUL_ST_DONE  = 3'h2;
-    localparam MUL_ST_ERROR = 3'h3;
+    localparam MUL_ST_RESET = 2'h0;
+    localparam MUL_ST_CAL   = 2'h1;
+    localparam MUL_ST_DONE  = 2'h2;
+    localparam MUL_ST_ERROR = 2'h3;
     
     wire done_sig;
     reg ready_reg;
     reg done_reg;
     reg [C_WIDTH-1: 0] count;
     
-    reg [2:0] state_reg;
+    reg [1:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
     reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
     
@@ -326,19 +407,29 @@ module multiplier #
     case (MUL_TYPE)
         0: begin
             wire [2*C_WIDTH-1:0] result;
-            radder_multiplier #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_mul (
+            matrix_multiplier #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_mul (
                 .a(a),
                 .b(b),
-                .y(result)
+                .y(result),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
             );
             assign y = result[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
         end
         1: begin
             wire [2*C_WIDTH-1:0] result;
-            radder_multiplier #(.C_WIDTH(C_WIDTH), .USE_CLA(1)) U_mul (
+            matrix_multiplier #(.C_WIDTH(C_WIDTH), .USE_CLA(1)) U_mul (
                 .a(a),
                 .b(b),
-                .y(result)
+                .y(result),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
             );
             assign y = result[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
         end

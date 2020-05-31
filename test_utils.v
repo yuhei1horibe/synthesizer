@@ -4,15 +4,19 @@ module mul_test;
     localparam BITWIDTH    = 8;
     localparam FIXED_POINT = 0;
     reg clock;
-    wire ready;
-    wire done;
+    wire ready0;
+    wire ready1;
+    wire ready2;
+    wire done0;
+    wire done1;
+    wire done2;
     reg rst;
     reg trigger;
-    reg [BITWIDTH-1:0] a;
-    reg [BITWIDTH-1:0] b;
-    wire [2*BITWIDTH-1:0] y0;
-    wire [2*BITWIDTH-1:0] y1;
-    wire [2*BITWIDTH-1:0] y2;
+    reg [BITWIDTH-1:0]  a;
+    reg [BITWIDTH-1:0]  b;
+    wire [BITWIDTH-1:0] y0;
+    wire [BITWIDTH-1:0] y1;
+    wire [BITWIDTH-1:0] y2;
 
 
     // Clock
@@ -52,8 +56,8 @@ module mul_test;
         .y(y0),
         .ctl_clk(clock),
         .trigger(trigger),
-        .ready(ready),
-        .done(done),
+        .ready(ready0),
+        .done(done0),
         .reset(rst)
     );
 
@@ -63,8 +67,8 @@ module mul_test;
         .y(y1),
         .ctl_clk(clock),
         .trigger(trigger),
-        .ready(ready),
-        .done(done),
+        .ready(ready1),
+        .done(done1),
         .reset(rst)
     );
 
@@ -74,8 +78,8 @@ module mul_test;
         .y(y2),
         .ctl_clk(clock),
         .trigger(trigger),
-        .ready(ready),
-        .done(done),
+        .ready(ready2),
+        .done(done2),
         .reset(rst)
     );
 
