@@ -2,7 +2,7 @@
 
 module mul_test;
     localparam BITWIDTH    = 8;
-    localparam FIXED_POINT = 4;
+    localparam FIXED_POINT = 0;
     reg clock;
     wire ready;
     wire done;
@@ -10,7 +10,9 @@ module mul_test;
     reg trigger;
     reg [BITWIDTH-1:0] a;
     reg [BITWIDTH-1:0] b;
-    wire [BITWIDTH-1:0] y;
+    wire [2*BITWIDTH-1:0] y0;
+    wire [2*BITWIDTH-1:0] y1;
+    wire [2*BITWIDTH-1:0] y2;
 
 
     // Clock
@@ -27,8 +29,8 @@ module mul_test;
 
         #15;
         rst     <= 1'b1;
-        a       <= 8'h38; // 3.5
-        b       <= 8'h20; // 2.0
+        a       <= 8'h03;
+        b       <= 8'h02;
 
         #10;
         trigger <= 1'b1;
@@ -44,10 +46,32 @@ module mul_test;
         $finish;
     end
 
-    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT)) UUT (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(0)) UUT0 (
         .a(a),
         .b(b),
-        .y(y),
+        .y(y0),
+        .ctl_clk(clock),
+        .trigger(trigger),
+        .ready(ready),
+        .done(done),
+        .reset(rst)
+    );
+
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(1)) UUT1 (
+        .a(a),
+        .b(b),
+        .y(y1),
+        .ctl_clk(clock),
+        .trigger(trigger),
+        .ready(ready),
+        .done(done),
+        .reset(rst)
+    );
+
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(2)) UUT2 (
+        .a(a),
+        .b(b),
+        .y(y2),
         .ctl_clk(clock),
         .trigger(trigger),
         .ready(ready),
