@@ -1,7 +1,7 @@
 `timescale 1 ns/1 ns
 
 module mul_test;
-    localparam BITWIDTH    = 8;
+    localparam BITWIDTH    = 16;
     localparam FIXED_POINT = 0;
     reg clock;
     wire ready0;
