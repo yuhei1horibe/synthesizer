@@ -132,7 +132,7 @@ endmodule
 module matrix_multiplier #
     (
         parameter C_WIDTH     = 32,
-        parameter USE_CLA     = 1
+        parameter USE_CLA     = 0
     )
     (
         input wire [C_WIDTH-1:0] a,
@@ -384,9 +384,379 @@ module multi_cycle_multiplier #
     assign done = done_reg;
 endmodule
 
+// Hybrid
+module partial_multiplier #
+    (
+        parameter C_WIDTH     = 32,
+        parameter NUM_ADDER  = 4,
+        parameter USE_CLA     = 0
+    )
+    (
+        input wire [C_WIDTH-1:0]   a,
+        input wire [NUM_ADDER-1:0] b,
+        output wire [NUM_ADDER+C_WIDTH-1:0] y
+    );
+    genvar i;
+    genvar j;
+
+    for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
+        wire [C_WIDTH:0]sum;
+        wire [C_WIDTH-1:0] a_1;
+        for (j = 0; j < C_WIDTH; j = j+1) begin
+            assign mul_digit[i].a_1[j] = a[j] & b[i];
+        end
+
+        if (i == 0) begin
+            assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_1 };
+        end else begin
+            if (USE_CLA == 1) begin
+                cl_adder #(.C_WIDTH(C_WIDTH)) U_adder
+                (
+                    .y(mul_digit[i].sum),
+                    .a(mul_digit[i].a_1),
+                    .b(mul_digit[i-1].sum[C_WIDTH:1])
+                );
+            end else begin
+                rc_adder #(.C_WIDTH(C_WIDTH)) U_adder
+                (
+                    .y(mul_digit[i].sum),
+                    .a(mul_digit[i].a_1),
+                    .b(mul_digit[i-1].sum[C_WIDTH:1])
+                );
+            end
+        end
+    end
+
+    for (i = 0; i <= NUM_ADDER; i = i+1) begin: mul_result
+        if (i < NUM_ADDER) begin
+            assign y[i] = mul_digit[i].sum[0];
+        end else begin
+            assign y[C_WIDTH+NUM_ADDER-1:NUM_ADDER] = mul_digit[NUM_ADDER-1].sum[C_WIDTH:1];
+        end
+    end
+endmodule
+
+module hybrid_multiplier #
+    (
+        parameter integer C_WIDTH = 32,
+        parameter integer FIXED_POINT = 8,
+        parameter integer USE_CLA = 0
+    )
+    (
+        input wire  [C_WIDTH-1:0] a,
+        input wire  [C_WIDTH-1:0] b,
+        output wire [C_WIDTH-1:0] y,
+        input wire  ctl_clk,
+        input wire  trigger,
+        output wire ready,
+        output wire done,
+        input wire  reset
+    );
+    localparam NUM_ADDER    = 4;
+
+    localparam MUL_ST_RESET = 2'h0;
+    localparam MUL_ST_CAL   = 2'h1;
+    localparam MUL_ST_DONE  = 2'h2;
+    localparam MUL_ST_ERROR = 2'h3;
+    
+    wire done_sig;
+    reg ready_reg;
+    reg done_reg;
+    reg [C_WIDTH-1: 0] count;
+    
+    reg [1:0] state_reg;
+    reg [C_WIDTH-1:0] a_reg;
+    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
+    
+    reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
+    reg [C_WIDTH-1:0] out_reg;
+
+    wire [C_WIDTH+NUM_ADDER-1:0] part_result;
+    wire [C_WIDTH+NUM_ADDER-1:0] sum;
+    wire dummy;
+    
+    // Ready to accept new inputs
+    always @(posedge ctl_clk) begin
+        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
+            ready_reg <= 1'b1;
+        end else begin
+            ready_reg <= 1'b0;
+        end
+    end
+    assign ready = ready_reg;
+    
+    // State machine
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            state_reg <= MUL_ST_RESET;
+        end else begin
+            case (state_reg)
+                MUL_ST_RESET: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end
+                end
+                MUL_ST_CAL: begin
+                    if (done_sig)
+                        state_reg <= MUL_ST_DONE;
+                end
+                MUL_ST_DONE: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+                default: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+            endcase
+        end
+    end
+    assign done_sig = (count >= (C_WIDTH/NUM_ADDER)) ? 1 : 0;
+    
+    // Main calculation
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            a_reg <= 0;
+            b_reg <= 0;
+            y_reg <= 0;
+        end else begin
+            if (ready && trigger) begin
+                a_reg <= a;
+                b_reg <= b;
+                y_reg[2*C_WIDTH-1:0] <= 0;
+            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                a_reg <= a_reg;
+                b_reg <= b_reg >> NUM_ADDER;
+                
+                // Calculation
+                y_reg[C_WIDTH-NUM_ADDER-1:0]         <= y_reg[C_WIDTH-1:NUM_ADDER];
+                y_reg[2*C_WIDTH-1:C_WIDTH-NUM_ADDER] <= sum;
+            end else begin
+                a_reg <= a_reg;
+                b_reg <= b_reg;
+                y_reg <= y_reg;
+            end
+        end
+    end
+
+    partial_multiplier #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_mul (
+        .a(a_reg),
+        .b(b_reg[NUM_ADDER-1:0]),
+        .y(part_result)
+    );
+
+    if (USE_CLA) begin
+        cl_adder #(.C_WIDTH(C_WIDTH+NUM_ADDER)) U_adder (
+            .a(part_result),
+            .b({ 0, y_reg[2*C_WIDTH-1:C_WIDTH] }),
+            .y({dummy,sum})
+        );
+    end else begin
+        rc_adder #(.C_WIDTH(C_WIDTH+NUM_ADDER)) U_adder (
+            .a(part_result),
+            .b({ 0, y_reg[2*C_WIDTH-1:C_WIDTH] }),
+            .y({ dummy,sum })
+        );
+    end
+    
+    // Counter for calculation
+    always @(negedge ctl_clk) begin
+        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
+            count <= count + 1;
+        end else begin
+            count <= 0;
+        end
+    end
+
+    // Output
+    always @(posedge ctl_clk) begin
+        if (!reset) begin
+            out_reg  <= 0;
+            done_reg <= 0;
+        end else begin
+            if (done_sig == 1) begin
+                // Fixed point calculation
+                out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                done_reg <= 1'b1;
+            end else begin
+                out_reg  <= out_reg;
+                done_reg <= 1'b0;
+            end
+        end
+    end
+    assign y    = out_reg;
+    assign done = done_reg;
+endmodule
+
+// Radix-4 multiplier
+module radix_multiplier #
+    (
+        parameter C_WIDTH     = 32,
+        parameter FIXED_POINT = 8
+    )
+    (
+        input wire  [C_WIDTH-1:0] a,
+        input wire  [C_WIDTH-1:0] b,
+        output wire [C_WIDTH-1:0] y,
+        input wire  ctl_clk,
+        input wire  trigger,
+        output wire ready,
+        output wire done,
+        input wire  reset
+    );
+    localparam MUL_ST_RESET = 2'h0;
+    localparam MUL_ST_CAL   = 2'h1;
+    localparam MUL_ST_DONE  = 2'h2;
+    localparam MUL_ST_ERROR = 2'h3;
+    
+    reg  ready_reg;
+    reg  done_reg;
+    reg [C_WIDTH-1: 0] count;
+    
+    reg [1:0]         state_reg;
+    reg [C_WIDTH-1:0] a_reg;
+    reg [C_WIDTH-1:0] b_reg;
+    
+    reg [2*C_WIDTH:0] y_reg;
+    reg [C_WIDTH-1:0] out_reg;
+
+    wire done_sig;
+    wire [1:0]         sel1;
+    wire [1:0]         sel2;
+    wire [C_WIDTH:0]   multiplicand1;
+    wire [C_WIDTH:0]   multiplicand2;
+    wire [C_WIDTH+1:0] a_x3;
+    wire [C_WIDTH:0]   sum1;
+    wire [C_WIDTH:0]   sum2;
+    wire dummy1;
+    wire dummy2;
+
+    // Radix-4 * 2
+    assign multiplicand1 = (sel1 == 0) ? 0 :
+                           (sel1 == 1) ? {1'b0, a_reg} :
+                           (sel1 == 2) ? {a_reg, 1'b0} :
+                           a_x3[C_WIDTH:0];
+    assign multiplicand2 = (sel2 == 0) ? 0 :
+                           (sel1 == 1) ? {1'b0, a_reg} :
+                           (sel2 == 2) ? {a_reg, 1'b0} :
+                           a_x3[C_WIDTH:0];
+    assign sel1 = b_reg[1:0];
+    assign sel2 = b_reg[3:2];
+    
+
+    // Calculate a * 3
+    rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_x3 (
+        .a({1'b0, a_reg}),
+        .b({a_reg, 1'b0}),
+        .y(a_x3)
+    );
+
+    // Sum up
+    rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_1 (
+        .a(multiplicand1),
+        .b({3'b0, y_reg[2*C_WIDTH-1:C_WIDTH+2]}),
+        .y({dummy1, sum1})
+    );
+    rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_2 (
+        .a(multiplicand2),
+        .b({2'b0, sum1[C_WIDTH:2]}),
+        .y({dummy2, sum2})
+    );
+    
+    // Ready to accept new inputs
+    always @(posedge ctl_clk) begin
+        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
+            ready_reg <= 1'b1;
+        end else begin
+            ready_reg <= 1'b0;
+        end
+    end
+    assign ready = ready_reg;
+    
+    // State machine
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            state_reg <= MUL_ST_RESET;
+        end else begin
+            case (state_reg)
+                MUL_ST_RESET: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end
+                end
+                MUL_ST_CAL: begin
+                    if (done_sig)
+                        state_reg <= MUL_ST_DONE;
+                end
+                MUL_ST_DONE: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+                default: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+            endcase
+        end
+    end
+    
+    // Main calculation
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            a_reg <= 0;
+            b_reg <= 0;
+            y_reg <= 0;
+        end else begin
+            if (ready && trigger) begin
+                a_reg <= a;
+                b_reg <= b;
+                y_reg[2*C_WIDTH-1:0] <= 0;
+            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                a_reg <= a_reg;
+                b_reg <= b_reg >> 4;
+                
+                // Calculation
+                y_reg[C_WIDTH-5:0]         <= y_reg[C_WIDTH-1:4];
+                y_reg[C_WIDTH-4:C_WIDTH-5] <= sum1[1:0];
+                y_reg[2*C_WIDTH:C_WIDTH-2] <= sum2;
+            end else begin
+                a_reg <= a_reg;
+                b_reg <= b_reg;
+                y_reg <= y_reg;
+            end
+        end
+    end
+    
+    // Counter for calculation
+    always @(negedge ctl_clk) begin
+        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
+            count <= count + 1;
+        end else begin
+            count <= 0;
+        end
+    end
+    assign done_sig = count >= (C_WIDTH/4) ? 1 : 0;
+
+    // Output
+    always @(posedge ctl_clk) begin
+        if (!reset) begin
+            out_reg  <= 0;
+            done_reg <= 0;
+        end else begin
+            if (done_sig == 1) begin
+                // Fixed point calculation
+                out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                done_reg <= 1'b1;
+            end else begin
+                out_reg  <= out_reg;
+                done_reg <= 1'b0;
+            end
+        end
+    end
+    assign y    = out_reg;
+    assign done = done_reg;
+endmodule
+
 // MUL_TYPE: 0 RCA multiplier
 // MUL_TYPE: 1 CLA multiplier
-// MUL_TYPE: 2 multi-cycle multiplier
+// MUL_TYPE: 2 hybrid multiplier
+// MUL_TYPE: 3 multi-cycle multiplier
 module multiplier #
     (
         parameter C_WIDTH     = 32,
@@ -432,6 +802,30 @@ module multiplier #
                 .reset(reset)
             );
             assign y = result[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+        end
+        2: begin
+            hybrid_multiplier #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT), .USE_CLA(1)) U_mul (
+                .a(a),
+                .b(b),
+                .y(y),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
+            );
+        end
+        3: begin
+            radix_multiplier #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_mul (
+                .a(a),
+                .b(b),
+                .y(y),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
+            );
         end
         default: begin
             multi_cycle_multiplier #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_mul (

@@ -41,8 +41,8 @@ module mul_test;
         #10;
         trigger <= 1'b0;
         #90;
-        a       <= 8'h24; // 2.25
-        b       <= 8'h70; // 7.0
+        a       <= 8'h24;
+        b       <= 8'h73;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
@@ -50,7 +50,7 @@ module mul_test;
         $finish;
     end
 
-    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(0)) UUT0 (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(3)) UUT0 (
         .a(a),
         .b(b),
         .y(y0),
@@ -61,7 +61,7 @@ module mul_test;
         .reset(rst)
     );
 
-    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(1)) UUT1 (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(2)) UUT1 (
         .a(a),
         .b(b),
         .y(y1),
@@ -72,7 +72,7 @@ module mul_test;
         .reset(rst)
     );
 
-    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(2)) UUT2 (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(4)) UUT2 (
         .a(a),
         .b(b),
         .y(y2),
