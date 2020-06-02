@@ -33,8 +33,8 @@ module mul_test;
 
         #15;
         rst     <= 1'b1;
-        a       <= 32'h00000303;
-        b       <= 32'h00000505;
+        a       <= 32'hee6c3250;
+        b       <= 32'h1bca53c2;
 
         #10;
         trigger <= 1'b1;

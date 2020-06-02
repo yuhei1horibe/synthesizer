@@ -145,8 +145,10 @@ module cl_adder #(parameter integer C_WIDTH = 32)
                     .y    (y[next_digit+i]));
             end
         end
+        assign y[C_WIDTH] = carry[C_WIDTH%4-1];
+    end else begin
+        assign y[C_WIDTH] = add_digit[C_WIDTH/4-1].c_out;
     end
-    assign y[C_WIDTH] = add_digit[C_WIDTH/4-1].c_out;
 endmodule
 
 // Multiplier
@@ -166,7 +168,6 @@ module matrix_multiplier #
         input wire  reset
     );
     genvar i;
-    genvar j;
 
     localparam num_cycles = 4;
 
@@ -183,9 +184,7 @@ module matrix_multiplier #
     for (i = 0; i < C_WIDTH; i = i+1) begin: mul_digit
         wire [C_WIDTH:0]sum;
         wire [C_WIDTH-1:0] a_1;
-        for (j = 0; j < C_WIDTH; j = j+1) begin
-            assign mul_digit[i].a_1[j] = a_reg[j] & b_reg[i];
-        end
+        assign mul_digit[i].a_1 = (b[i] ? a : 0);
 
         if (i == 0) begin
             assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_1 };
@@ -628,7 +627,7 @@ module radix4_partial_multiplier #
     genvar i;
 
     wire [C_WIDTH:0]   a_x2;
-    wire [C_WIDTH:0]   a_x3;
+    wire [C_WIDTH+1:0] a_x3;
     wire dummy;
 
     // Radix-4 table
@@ -638,42 +637,42 @@ module radix4_partial_multiplier #
         (
             .a({1'b0, a}),
             .b(a_x2),
-            .y({dummy, a_x3})
+            .y(a_x3)
         );
     end else begin
         rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_x3
         (
             .a({1'b0, a}),
             .b(a_x2),
-            .y({dummy, a_x3})
+            .y(a_x3)
         );
     end
 
     for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
         wire [C_WIDTH+2:0] sum;
-        wire [C_WIDTH:0]   a_rad4;
+        wire [C_WIDTH+1:0] a_rad4;
 
         // radix
         assign mul_digit[i].a_rad4 = (b[2*i+1:2*i] == 2'b00) ? 0 :
-                                     (b[2*i+1:2*i] == 2'b01) ? {1'b0, a} :
-                                     (b[2*i+1:2*i] == 2'b10) ? a_x2 :
+                                     (b[2*i+1:2*i] == 2'b01) ? {2'h0, a} :
+                                     (b[2*i+1:2*i] == 2'b10) ? {1'h0, a_x2} :
                                      a_x3;
 
         if (i == 0) begin
             assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_rad4 };
         end else begin
             if (USE_CLA) begin
-                cl_adder #(.C_WIDTH(C_WIDTH+1)) U_adder
+                cl_adder #(.C_WIDTH(C_WIDTH+2)) U_adder
                 (
                     .a(mul_digit[i].a_rad4),
-                    .b({1'b0, mul_digit[i-1].sum[C_WIDTH+1:2]}),
+                    .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
                     .y(mul_digit[i].sum)
                 );
             end else begin
-                rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder
+                rc_adder #(.C_WIDTH(C_WIDTH+2)) U_adder
                 (
                     .a(mul_digit[i].a_rad4),
-                    .b({1'b0, mul_digit[i-1].sum[C_WIDTH+1:2]}),
+                    .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
                     .y(mul_digit[i].sum)
                 );
             end
@@ -849,7 +848,8 @@ endmodule
 // MUL_TYPE: 0 RCA multiplier
 // MUL_TYPE: 1 CLA multiplier
 // MUL_TYPE: 2 hybrid multiplier
-// MUL_TYPE: 3 multi-cycle multiplier
+// MUL_TYPE: 3 radix4-hybrid multiplier
+// MUL_TYPE: 4 multi-cycle multiplier
 module multiplier #
     (
         parameter C_WIDTH     = 32,
