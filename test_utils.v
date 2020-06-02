@@ -1,7 +1,7 @@
 `timescale 1 ns/1 ns
 
 module mul_test;
-    localparam BITWIDTH    = 16;
+    localparam BITWIDTH    = 32;
     localparam FIXED_POINT = 0;
     reg clock;
     wire ready0;
@@ -33,16 +33,16 @@ module mul_test;
 
         #15;
         rst     <= 1'b1;
-        a       <= 8'h03;
-        b       <= 8'h02;
+        a       <= 32'h00000303;
+        b       <= 32'h00000505;
 
         #10;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
         #90;
-        a       <= 8'h24;
-        b       <= 8'h73;
+        a       <= 32'h12345678;
+        b       <= 32'hfedcba98;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
