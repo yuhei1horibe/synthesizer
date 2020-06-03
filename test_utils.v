@@ -40,13 +40,15 @@ module mul_test;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
-        #90;
+        //#90;
+        #330;
         a       <= 32'h12345678;
         b       <= 32'hfedcba98;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
-        #100;
+        //#100;
+        #330;
         $finish;
     end
 
@@ -72,7 +74,7 @@ module mul_test;
         .reset(rst)
     );
 
-    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(4)) UUT2 (
+    multiplier #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(1)) UUT2 (
         .a(a),
         .b(b),
         .y(y2),
