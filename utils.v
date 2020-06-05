@@ -90,13 +90,13 @@ module multiplier #
     wire [C_WIDTH-1:0] unsigned_y;
     wire sign;
 
-    sign_converter U_sign_a (
+    sign_converter #(.C_WIDTH(C_WIDTH)) U_sign_a (
         .sign     (a[C_WIDTH-1] & signed_cal),
         .value_in (a),
         .value_out(unsigned_a)
     );
 
-    sign_converter U_sign_b (
+    sign_converter #(.C_WIDTH(C_WIDTH)) U_sign_b (
         .sign     (b[C_WIDTH-1] & signed_cal),
         .value_in (b),
         .value_out(unsigned_b)
@@ -151,7 +151,7 @@ module multiplier #
         end
     endcase
 
-    sign_converter U_sign_y (
+    sign_converter #(.C_WIDTH(C_WIDTH)) U_sign_y (
         .sign     (sign),
         .value_in (unsigned_y),
         .value_out(y)

@@ -503,27 +503,53 @@ module radix_multiplier #
     assign done_sig = (count >= (C_WIDTH/(2*NUM_ADDER))) ? 1 : 0;
     
     // Main calculation
-    always @(negedge ctl_clk) begin
-        if (!reset) begin
-            a_reg <= 0;
-            b_reg <= 0;
-            y_reg <= 0;
-        end else begin
-            if (ready && trigger) begin
-                a_reg <= a;
-                b_reg <= b;
-                y_reg[2*C_WIDTH-1:0] <= 0;
-            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-                a_reg <= a_reg;
-                b_reg <= b_reg >> (2 * NUM_ADDER);
-                
-                // Calculation
-                y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_ADDER] <= sum;
-                y_reg[C_WIDTH-2*NUM_ADDER-1:0]         <= y_reg[C_WIDTH-1:2*NUM_ADDER];
+    if ((C_WIDTH - 2*NUM_ADDER) > 0) begin
+        always @(negedge ctl_clk) begin
+            if (!reset) begin
+                a_reg <= 0;
+                b_reg <= 0;
+                y_reg <= 0;
             end else begin
-                a_reg <= a_reg;
-                b_reg <= b_reg;
-                y_reg <= y_reg;
+                if (ready && trigger) begin
+                    a_reg <= a;
+                    b_reg <= b;
+                    y_reg[2*C_WIDTH-1:0] <= 0;
+                end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                    a_reg <= a_reg;
+                    b_reg <= b_reg >> (2 * NUM_ADDER);
+                    
+                    // Calculation
+                    y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_ADDER] <= sum;
+                    y_reg[C_WIDTH-2*NUM_ADDER-1:0]         <= y_reg[C_WIDTH-1:2*NUM_ADDER];
+                end else begin
+                    a_reg <= a_reg;
+                    b_reg <= b_reg;
+                    y_reg <= y_reg;
+                end
+            end
+        end
+    end else begin
+        always @(negedge ctl_clk) begin
+            if (!reset) begin
+                a_reg <= 0;
+                b_reg <= 0;
+                y_reg <= 0;
+            end else begin
+                if (ready && trigger) begin
+                    a_reg <= a;
+                    b_reg <= b;
+                    y_reg[2*C_WIDTH-1:0] <= 0;
+                end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                    a_reg <= a_reg;
+                    b_reg <= b_reg >> (2 * NUM_ADDER);
+                    
+                    // Calculation
+                    y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_ADDER] <= sum;
+                end else begin
+                    a_reg <= a_reg;
+                    b_reg <= b_reg;
+                    y_reg <= y_reg;
+                end
             end
         end
     end
