@@ -151,6 +151,33 @@ module cl_adder #(parameter integer C_WIDTH = 32)
     end
 endmodule
 
+// Adder
+module adder #
+    (
+        parameter integer C_WIDTH = 32,
+        parameter integer USE_CLA = 0
+    )
+    (
+        input  [C_WIDTH-1:0] a,
+        input  [C_WIDTH-1:0] b,
+        output [C_WIDTH:0]   y
+    );
+
+    if (USE_CLA) begin
+        cl_adder #(.C_WIDTH(C_WIDTH)) U_adder (
+            .a(a),
+            .b(b),
+            .y(y)
+        );
+    end else begin
+        rc_adder #(.C_WIDTH(C_WIDTH)) U_adder (
+            .a(a),
+            .b(b),
+            .y(y)
+        );
+    end
+endmodule
+
 // Multiplier
 module array_multiplier #
     (
@@ -172,21 +199,12 @@ module array_multiplier #
         if (i == 0) begin
             assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_1 };
         end else begin
-            if (USE_CLA == 1) begin
-                cl_adder #(.C_WIDTH(C_WIDTH)) U_adder
-                (
-                    .y(mul_digit[i].sum),
-                    .a(mul_digit[i].a_1),
-                    .b(mul_digit[i-1].sum[C_WIDTH:1])
-                );
-            end else begin
-                rc_adder #(.C_WIDTH(C_WIDTH)) U_adder
-                (
-                    .y(mul_digit[i].sum),
-                    .a(mul_digit[i].a_1),
-                    .b(mul_digit[i-1].sum[C_WIDTH:1])
-                );
-            end
+            adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder
+            (
+                .y(mul_digit[i].sum),
+                .a(mul_digit[i].a_1),
+                .b(mul_digit[i-1].sum[C_WIDTH:1])
+            );
         end
     end
 
@@ -300,19 +318,11 @@ module multi_cycle_multiplier #
             end
         end
     end
-    if (USE_CLA) begin
-        cl_adder #(.C_WIDTH(C_WIDTH)) U_adder (
-            .a(y_reg[2*C_WIDTH-1:C_WIDTH]),
-            .b(multiplicand),
-            .y(sum)
-        );
-    end else begin
-        rc_adder #(.C_WIDTH(C_WIDTH)) U_adder (
-            .a(y_reg[2*C_WIDTH-1:C_WIDTH]),
-            .b(multiplicand),
-            .y(sum)
-        );
-    end
+    adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder (
+        .a(y_reg[2*C_WIDTH-1:C_WIDTH]),
+        .b(multiplicand),
+        .y(sum)
+    );
     assign multiplicand = ((b_reg[0] == 1'b1) ? a_reg : 0);
     
     // Counter for calculation
@@ -358,33 +368,21 @@ module partial_multiplier #
         output wire [NUM_ADDER+C_WIDTH-1:0] y
     );
     genvar i;
-    genvar j;
 
     for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
         wire [C_WIDTH:0]sum;
         wire [C_WIDTH-1:0] a_1;
-        for (j = 0; j < C_WIDTH; j = j+1) begin
-            assign mul_digit[i].a_1[j] = a[j] & b[i];
-        end
+        assign mul_digit[i].a_1 = b[i] ? a : 0;
 
         if (i == 0) begin
             assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_1 };
         end else begin
-            if (USE_CLA == 1) begin
-                cl_adder #(.C_WIDTH(C_WIDTH)) U_adder
-                (
-                    .y(mul_digit[i].sum),
-                    .a(mul_digit[i].a_1),
-                    .b(mul_digit[i-1].sum[C_WIDTH:1])
-                );
-            end else begin
-                rc_adder #(.C_WIDTH(C_WIDTH)) U_adder
-                (
-                    .y(mul_digit[i].sum),
-                    .a(mul_digit[i].a_1),
-                    .b(mul_digit[i-1].sum[C_WIDTH:1])
-                );
-            end
+            adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder
+            (
+                .y(mul_digit[i].sum),
+                .a(mul_digit[i].a_1),
+                .b(mul_digit[i-1].sum[C_WIDTH:1])
+            );
         end
     end
 
@@ -509,19 +507,11 @@ module hybrid_multiplier #
         .y(part_result)
     );
 
-    if (USE_CLA) begin
-        cl_adder #(.C_WIDTH(C_WIDTH+NUM_ADDER)) U_adder (
-            .a(part_result),
-            .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
-            .y({dummy,sum})
-        );
-    end else begin
-        rc_adder #(.C_WIDTH(C_WIDTH+NUM_ADDER)) U_adder (
-            .a(part_result),
-            .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
-            .y({ dummy,sum })
-        );
-    end
+    adder #(.C_WIDTH(C_WIDTH+NUM_ADDER), .USE_CLA(USE_CLA)) U_adder (
+        .a(part_result),
+        .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
+        .y({dummy,sum})
+    );
     assign dummy1 = 0;
     
     // Counter for calculation
@@ -573,21 +563,12 @@ module radix4_partial_multiplier #
 
     // Radix-4 table
     assign a_x2 = { a, 1'b0 };
-    if (USE_CLA) begin
-        cl_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_x3
-        (
-            .a({1'b0, a}),
-            .b(a_x2),
-            .y(a_x3)
-        );
-    end else begin
-        rc_adder #(.C_WIDTH(C_WIDTH+1)) U_adder_x3
-        (
-            .a({1'b0, a}),
-            .b(a_x2),
-            .y(a_x3)
-        );
-    end
+    adder #(.C_WIDTH(C_WIDTH+1), .USE_CLA(USE_CLA)) U_adder_x3
+    (
+        .a({1'b0, a}),
+        .b(a_x2),
+        .y(a_x3)
+    );
 
     for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
         wire [C_WIDTH+2:0] sum;
@@ -602,21 +583,12 @@ module radix4_partial_multiplier #
         if (i == 0) begin
             assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_rad4 };
         end else begin
-            if (USE_CLA) begin
-                cl_adder #(.C_WIDTH(C_WIDTH+2)) U_adder
-                (
-                    .a(mul_digit[i].a_rad4),
-                    .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
-                    .y(mul_digit[i].sum)
-                );
-            end else begin
-                rc_adder #(.C_WIDTH(C_WIDTH+2)) U_adder
-                (
-                    .a(mul_digit[i].a_rad4),
-                    .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
-                    .y(mul_digit[i].sum)
-                );
-            end
+            adder #(.C_WIDTH(C_WIDTH+2), .USE_CLA(USE_CLA)) U_adder
+            (
+                .a(mul_digit[i].a_rad4),
+                .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
+                .y(mul_digit[i].sum)
+            );
         end
     end
 
@@ -742,19 +714,11 @@ module radix_multiplier #
         .y(part_result)
     );
 
-    if (USE_CLA) begin
-        cl_adder #(.C_WIDTH(C_WIDTH+2*NUM_ADDER)) U_adder (
-            .a(part_result),
-            .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
-            .y({ dummy,sum })
-        );
-    end else begin
-        rc_adder #(.C_WIDTH(C_WIDTH+2*NUM_ADDER)) U_adder (
-            .a(part_result),
-            .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
-            .y({ dummy,sum })
-        );
-    end
+    adder #(.C_WIDTH(C_WIDTH+2*NUM_ADDER), .USE_CLA(USE_CLA)) U_adder (
+        .a(part_result),
+        .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
+        .y({ dummy,sum })
+    );
     assign dummy1 = 0;
     
     // Counter for calculation
