@@ -4,6 +4,7 @@ module mul_test;
     localparam BITWIDTH    = 32;
     localparam FIXED_POINT = 0;
     reg clock;
+    reg signed_cal;
     wire ready0;
     wire ready1;
     wire ready2;
@@ -28,11 +29,12 @@ module mul_test;
     end
 
     initial begin
-        rst     <= 1'b0;
-        trigger <= 1'b0;
-        a       <= 0;
-        b       <= 0;
-        clock   <= 0;
+        rst        <= 1'b0;
+        trigger    <= 1'b0;
+        a          <= 0;
+        b          <= 0;
+        clock      <= 0;
+        signed_cal <= 0;
 
         #15;
         rst     <= 1'h1;
@@ -46,13 +48,14 @@ module mul_test;
         #10;
         trigger <= 1'b0;
         #50;
-        a       <= 32'h12345678;
-        b       <= 32'hfedcba98;
+        signed_cal <= 1;
+        a          <= 32'h5;
+        b          <= 32'hfffffffd;
         //a       <= 32'h71;
         //b       <= 32'hc2;
-        trigger <= 1'b1;
+        trigger    <= 1'b1;
         #10;
-        trigger <= 1'b0;
+        trigger    <= 1'b0;
         #50;
         $finish;
     end
@@ -61,6 +64,7 @@ module mul_test;
         .a(a),
         .b(b),
         .y(y0),
+        .signed_cal(signed_cal),
         .ctl_clk(clock),
         .trigger(trigger),
         .ready(ready0),
@@ -72,6 +76,7 @@ module mul_test;
         .a(a),
         .b(b),
         .y(y1),
+        .signed_cal(signed_cal),
         .ctl_clk(clock),
         .trigger(trigger),
         .ready(ready1),
@@ -83,6 +88,7 @@ module mul_test;
         .a(a),
         .b(b),
         .y(y2),
+        .signed_cal(signed_cal),
         .ctl_clk(clock),
         .trigger(trigger),
         .ready(ready2),
@@ -94,6 +100,7 @@ module mul_test;
         .a(a),
         .b(b),
         .y(y3),
+        .signed_cal(signed_cal),
         .ctl_clk(clock),
         .trigger(trigger),
         .ready(ready3),
