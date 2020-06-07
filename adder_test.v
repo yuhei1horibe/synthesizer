@@ -5,7 +5,8 @@ module adder_test;
     reg reset;
     reg [C_WIDTH-1:0] a;
     reg [C_WIDTH-1:0] b;
-    wire [C_WIDTH:0]  y;
+    wire [C_WIDTH:0]  y1;
+    wire [C_WIDTH:0]  y2;
 
     initial begin
         reset <= 1'b0;
@@ -30,9 +31,16 @@ module adder_test;
             end
         end
     end
-    cl_adder #(.C_WIDTH(C_WIDTH)) DUT (
+    adder #(.C_WIDTH(C_WIDTH), .USE_CLA(1)) U_adder (
         .a(a),
         .b(b),
-        .y(y)
+        .y(y1)
+    );
+
+    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(1)) U_sub (
+        .a   (a),
+        .b   (b),
+        .sub (1'b1),
+        .y   (y2)
     );
 endmodule

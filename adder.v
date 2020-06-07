@@ -27,13 +27,15 @@ module rc_adder #(parameter integer C_WIDTH = 32)
 (
     input  [C_WIDTH-1:0]a,
     input  [C_WIDTH-1:0]b,
-    output [C_WIDTH:0]y
+    input               cin,
+    output [C_WIDTH:0]  y
 );
     wire carry[C_WIDTH-1:0];
 
-    half_adder U_0(
+    full_adder U_0(
         .a    (a[0]),
         .b    (b[0]),
+        .cin  (cin),
         .y    (y[0]),
         .cout (carry[0]));
 
@@ -102,6 +104,7 @@ module cl_adder #(parameter integer C_WIDTH = 32)
 (
     input  [C_WIDTH-1:0] a,
     input  [C_WIDTH-1:0] b,
+    input                cin,
     output [C_WIDTH:0]   y
 );
     genvar i;
@@ -109,7 +112,7 @@ module cl_adder #(parameter integer C_WIDTH = 32)
         wire c_out;
         if (i == 0) begin
             cl_adder_4 U_adder (
-                .c_in  (1'b0),
+                .c_in  (cin),
                 .a     (a[(i+1)*4-1:i*4]),
                 .b     (b[(i+1)*4-1:i*4]),
                 .y     (y[(i+1)*4-1:i*4]),

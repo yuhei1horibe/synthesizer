@@ -49,17 +49,58 @@ module adder #
 
     if (USE_CLA) begin
         cl_adder #(.C_WIDTH(C_WIDTH)) U_adder (
-            .a(a),
-            .b(b),
-            .y(y)
+            .a   (a),
+            .b   (b),
+            .cin (1'b0),
+            .y   (y)
         );
     end else begin
         rc_adder #(.C_WIDTH(C_WIDTH)) U_adder (
-            .a(a),
-            .b(b),
-            .y(y)
+            .a   (a),
+            .b   (b),
+            .cin (1'b0),
+            .y   (y)
         );
     end
+endmodule
+
+// Subtractor
+module subtractor #
+    (
+        parameter integer C_WIDTH = 32,
+        parameter integer USE_CLA = 0
+    )
+    (
+        input  [C_WIDTH-1:0] a,
+        input  [C_WIDTH-1:0] b,
+        input                sub,
+        output [C_WIDTH:0]   y
+    );
+    wire [C_WIDTH-1:0] neg_b;
+    wire [C_WIDTH:0]   sum;
+
+    genvar i;
+    for (i = 0; i < C_WIDTH; i = i+1) begin
+        assign neg_b[i] = sub ^ b[i];
+    end
+
+    if (USE_CLA) begin
+        cl_adder #(.C_WIDTH(C_WIDTH)) U_adder (
+            .a   (a),
+            .b   (neg_b),
+            .cin (sub),
+            .y   (sum)
+        );
+    end else begin
+        rc_adder #(.C_WIDTH(C_WIDTH)) U_adder (
+            .a   (a),
+            .b   (neg_b),
+            .cin (sub),
+            .y   (sum)
+        );
+    end
+    assign y[C_WIDTH-1:0] = sum[C_WIDTH-1:0];
+    assign y[C_WIDTH]     = ~sub & sum[C_WIDTH];
 endmodule
 
 // MUL_TYPE: 0 array multiplier
