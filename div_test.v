@@ -4,7 +4,7 @@ module div_test;
     localparam BITWIDTH    = 8;
     localparam FIXED_POINT = 0;
     reg clock;
-    //reg signed_cal;
+    reg signed_cal;
     wire ready0;
     //wire ready1;
     //wire ready2;
@@ -18,11 +18,11 @@ module div_test;
     reg [BITWIDTH-1:0]  a;
     reg [BITWIDTH-1:0]  b;
     wire [BITWIDTH-1:0] q0;
-    //wire [BITWIDTH-1:0] q1;
+    wire [BITWIDTH-1:0] q1;
     //wire [BITWIDTH-1:0] q2;
     //wire [BITWIDTH-1:0] q3;
     wire [BITWIDTH-1:0] r0;
-    //wire [BITWIDTH-1:0] r1;
+    wire [BITWIDTH-1:0] r1;
     //wire [BITWIDTH-1:0] r2;
     //wire [BITWIDTH-1:0] r3;
 
@@ -38,7 +38,7 @@ module div_test;
         a          <= 0;
         b          <= 0;
         clock      <= 0;
-        //signed_cal <= 0;
+        signed_cal <= 0;
 
         #15;
         rst     <= 1'h1;
@@ -53,7 +53,7 @@ module div_test;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
-        #50;
+        #100;
         //signed_cal <= 1;
         //a          <= 32'h5;
         //b          <= 32'hfffffffd;
@@ -64,34 +64,35 @@ module div_test;
         trigger    <= 1'b1;
         #10;
         trigger    <= 1'b0;
-        #50;
+        #100;
         $finish;
     end
 
-    array_divider #(.C_WIDTH(BITWIDTH), .USE_CLA(1)) UUT0 (
+    divider #(.C_WIDTH(BITWIDTH), .FIXED_POINT(0), .DIV_TYPE(0), .USE_CLA(1)) UUT0 (
         .a(a),
         .b(b),
         .q(q0),
-        .r(r0)
-        //.signed_cal(signed_cal),
-        //.ctl_clk(clock),
-        //.trigger(trigger),
-        //.ready(ready0),
-        //.done(done0),
-        //.reset(rst)
+        .r(r0),
+        .signed_cal(signed_cal),
+        .ctl_clk(clock),
+        .trigger(trigger),
+        .ready(ready0),
+        .done(done0),
+        .reset(rst)
     );
 
-    //divider #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(2)) UUT1 (
-    //    .a(a),
-    //    .b(b),
-    //    .q(q1),
-    //    .signed_cal(signed_cal),
-    //    .ctl_clk(clock),
-    //    .trigger(trigger),
-    //    .ready(ready1),
-    //    .done(done1),
-    //    .reset(rst)
-    //);
+    divider #(.C_WIDTH(BITWIDTH), .FIXED_POINT(0), .DIV_TYPE(1), USE_CLA(1)) UUT1 (
+        .a(a),
+        .b(b),
+        .q(q1),
+        .r(r1),
+        .signed_cal(signed_cal),
+        .ctl_clk(clock),
+        .trigger(trigger),
+        .ready(ready1),
+        .done(done1),
+        .reset(rst)
+    );
 
     //divider #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(1)) UUT2 (
     //    .a(a),

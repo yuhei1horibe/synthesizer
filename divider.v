@@ -38,7 +38,7 @@ module ctl_add_sub #
     assign pos            = rem[C_WIDTH];
 endmodule
 
-// Multiplier
+// Divider
 module array_divider #
     (
         parameter integer C_WIDTH = 32,
@@ -75,7 +75,7 @@ module array_divider #
         end
     end
 
-    for (i = 0; i < C_WIDTH; i = i+1) begin: mul_result
+    for (i = 0; i < C_WIDTH; i = i+1) begin: div_result
         if (i < C_WIDTH) begin
             assign q[i] = div_digit[i].q;
         end
@@ -83,146 +83,154 @@ module array_divider #
     assign r = div_digit[0].rem;
 endmodule
 
-//module multi_cycle_multiplier #
-//    (
-//        parameter integer C_WIDTH     = 32,
-//        parameter integer USE_CLA     = 0,
-//        parameter integer FIXED_POINT = 8
-//    )
-//    (
-//        input wire  [C_WIDTH-1:0] a,
-//        input wire  [C_WIDTH-1:0] b,
-//        output wire [C_WIDTH-1:0] y,
-//        input wire  ctl_clk,
-//        input wire  trigger,
-//        output wire ready,
-//        output wire done,
-//        input wire  reset
-//    );
-//    localparam MUL_ST_RESET = 2'h0;
-//    localparam MUL_ST_CAL   = 2'h1;
-//    localparam MUL_ST_DONE  = 2'h2;
-//    localparam MUL_ST_ERROR = 2'h3;
-//    
-//    wire done_sig;
-//    reg ready_reg;
-//    reg done_reg;
-//    reg [C_WIDTH-1: 0] count;
-//    
-//    reg [1:0] state_reg;
-//    reg [C_WIDTH-1:0] a_reg;
-//    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
-//    
-//    reg [2*C_WIDTH-1:0] y_reg;  // Consider the carry bit
-//    reg [C_WIDTH-1:0]   out_reg;
-//
-//    wire [C_WIDTH-1:0] multiplicand;
-//    wire [C_WIDTH:0]   sum;
-//    
-//    // Ready to accept new inputs
-//    always @(posedge ctl_clk) begin
-//        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
-//            ready_reg <= 1'b1;
-//        end else begin
-//            ready_reg <= 1'b0;
-//        end
-//    end
-//    assign ready = ready_reg;
-//    
-//    // State machine
-//    always @(negedge ctl_clk) begin
-//        if (!reset) begin
-//            state_reg <= MUL_ST_RESET;
-//        end else begin
-//            case (state_reg)
-//                MUL_ST_RESET: begin
-//                    if (trigger) begin
-//                        state_reg <= MUL_ST_CAL;
-//                    end
-//                end
-//                MUL_ST_CAL: begin
-//                    if (done_sig) begin
-//                        state_reg <= MUL_ST_DONE;
-//                    end
-//                end
-//                MUL_ST_DONE: begin
-//                    if (trigger) begin
-//                        state_reg <= MUL_ST_CAL;
-//                    end else begin
-//                        state_reg <= MUL_ST_RESET;
-//                    end
-//                end
-//                default: begin
-//                    state_reg <= MUL_ST_RESET;
-//                end
-//            endcase
-//        end
-//    end
-//    
-//    // Main calculation
-//    always @(negedge ctl_clk) begin
-//        if (!reset) begin
-//            a_reg <= 0;
-//            b_reg <= 0;
-//            y_reg <= 0;
-//        end else begin
-//            if (ready && trigger) begin
-//                a_reg <= a;
-//                b_reg <= b;
-//                y_reg[2*C_WIDTH-1:0] <= 0;
-//            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-//                a_reg <= a_reg;
-//                b_reg <= b_reg >> 1;
-//                
-//                // Calculation
-//                y_reg[C_WIDTH-2:0]           <= y_reg[C_WIDTH-1:1];
-//                y_reg[2*C_WIDTH-1:C_WIDTH-1] <= sum;
-//            end else begin
-//                a_reg <= a_reg;
-//                b_reg <= b_reg;
-//                y_reg <= y_reg;
-//            end
-//        end
-//    end
-//    adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder (
-//        .a(y_reg[2*C_WIDTH-1:C_WIDTH]),
-//        .b(multiplicand),
-//        .y(sum)
-//    );
-//    assign multiplicand = ((b_reg[0] == 1'b1) ? a_reg : 0);
-//    
-//    // Counter for calculation
-//    always @(negedge ctl_clk) begin
-//        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
-//            count <= count + 1;
-//        end else begin
-//            count <= 0;
-//        end
-//    end
-//    assign done_sig = (count >= C_WIDTH) ? 1 : 0;
-//
-//    // Output
-//    always @(posedge ctl_clk) begin
-//        if (!reset) begin
-//            out_reg  <= 0;
-//            done_reg <= 0;
-//        end else begin
-//            if (done_sig == 1) begin
-//                // Fixed point calculation
-//                out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
-//                done_reg <= 1'b1;
-//            end else begin
-//                out_reg  <= out_reg;
-//                done_reg <= 1'b0;
-//            end
-//        end
-//    end
-//    assign y    = out_reg;
-//    assign done = done_reg;
-//endmodule
-//
+module multi_cycle_divider #
+    (
+        parameter integer C_WIDTH     = 32,
+        parameter integer USE_CLA     = 0,
+        parameter integer FIXED_POINT = 8
+    )
+    (
+        input wire  [C_WIDTH-1:0] a,
+        input wire  [C_WIDTH-1:0] b,
+        output wire [C_WIDTH-1:0] q,
+        output wire [C_WIDTH-1:0] r,
+        input wire  ctl_clk,
+        input wire  trigger,
+        output wire ready,
+        output wire done,
+        input wire  reset
+    );
+    localparam MUL_ST_RESET = 2'h0;
+    localparam MUL_ST_CAL   = 2'h1;
+    localparam MUL_ST_DONE  = 2'h2;
+    localparam MUL_ST_ERROR = 2'h3;
+    
+    wire done_sig;
+    reg ready_reg;
+    reg done_reg;
+    reg [C_WIDTH-1: 0] count;
+    
+    reg [1:0] state_reg;
+    reg [C_WIDTH-1:0] a_reg;
+    reg [C_WIDTH-1:0] b_reg;
+    
+    reg [2*C_WIDTH-1:0] calc_reg;
+    reg [C_WIDTH-1:0]   q_reg;
+    reg [C_WIDTH-1:0]   r_reg;
+
+    wire [C_WIDTH-1:0] diff;
+    wire               q_1;
+    
+    // Ready to accept new inputs
+    always @(posedge ctl_clk) begin
+        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
+            ready_reg <= 1'b1;
+        end else begin
+            ready_reg <= 1'b0;
+        end
+    end
+    assign ready = ready_reg;
+    
+    // State machine
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            state_reg <= MUL_ST_RESET;
+        end else begin
+            case (state_reg)
+                MUL_ST_RESET: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end
+                end
+                MUL_ST_CAL: begin
+                    if (done_sig) begin
+                        state_reg <= MUL_ST_DONE;
+                    end
+                end
+                MUL_ST_DONE: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end else begin
+                        state_reg <= MUL_ST_RESET;
+                    end
+                end
+                default: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+            endcase
+        end
+    end
+    
+    // Main calculation
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            a_reg    <= 0;
+            b_reg    <= 0;
+            calc_reg <= 0;
+        end else begin
+            if (ready && trigger) begin
+                a_reg <= a;
+                b_reg <= b;
+                calc_reg[C_WIDTH-1:0]         <= a;
+                calc_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
+            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                a_reg <= a_reg;
+                b_reg <= b_reg;
+                
+                // Calculation
+                calc_reg[0]                   <= q_1;
+                calc_reg[C_WIDTH:1]           <= calc_reg[C_WIDTH-1:0];
+                calc_reg[2*C_WIDTH-1:C_WIDTH] <= diff;
+            end else begin
+                a_reg    <= a_reg;
+                b_reg    <= b_reg;
+                calc_reg <= calc_reg;
+            end
+        end
+    end
+    ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder (
+        .a  (calc_reg[2*C_WIDTH-2:C_WIDTH-1]),
+        .b  (b_reg),
+        .y  (diff),
+        .d  (q_1),
+        .pos(q_1)
+    );
+    
+    // Counter for calculation
+    always @(negedge ctl_clk) begin
+        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
+            count <= count + 1;
+        end else begin
+            count <= 0;
+        end
+    end
+    assign done_sig = (count >= C_WIDTH) ? 1 : 0;
+
+    // Output
+    always @(posedge ctl_clk) begin
+        if (!reset) begin
+            q_reg    <= 0;
+            r_reg    <= 0;
+            done_reg <= 0;
+        end else begin
+            if (done_sig == 1) begin
+                // Fixed point calculation
+                q_reg    <= calc_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                r_reg    <= calc_reg[2*C_WIDTH-1:C_WIDTH];
+                done_reg <= 1'b1;
+            end else begin
+                q_reg    <= q_reg;
+                done_reg <= 1'b0;
+            end
+        end
+    end
+    assign q    = q_reg;
+    assign r    = r_reg;
+    assign done = done_reg;
+endmodule
+
 //// Hybrid
-//module partial_multiplier #
+//module partial_divider #
 //    (
 //        parameter integer C_WIDTH     = 32,
 //        parameter integer NUM_ADDER  = 4,
@@ -235,33 +243,33 @@ endmodule
 //    );
 //    genvar i;
 //
-//    for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
+//    for (i = 0; i < NUM_ADDER; i = i+1) begin: div_digit
 //        wire [C_WIDTH:0]sum;
 //        wire [C_WIDTH-1:0] a_1;
-//        assign mul_digit[i].a_1 = b[i] ? a : 0;
+//        assign div_digit[i].a_1 = b[i] ? a : 0;
 //
 //        if (i == 0) begin
-//            assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_1 };
+//            assign div_digit[i].sum = { 1'b0, div_digit[i].a_1 };
 //        end else begin
 //            adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_adder
 //            (
-//                .y(mul_digit[i].sum),
-//                .a(mul_digit[i].a_1),
-//                .b(mul_digit[i-1].sum[C_WIDTH:1])
+//                .y(div_digit[i].sum),
+//                .a(div_digit[i].a_1),
+//                .b(div_digit[i-1].sum[C_WIDTH:1])
 //            );
 //        end
 //    end
 //
-//    for (i = 0; i <= NUM_ADDER; i = i+1) begin: mul_result
+//    for (i = 0; i <= NUM_ADDER; i = i+1) begin: div_result
 //        if (i < NUM_ADDER) begin
-//            assign y[i] = mul_digit[i].sum[0];
+//            assign y[i] = div_digit[i].sum[0];
 //        end else begin
-//            assign y[C_WIDTH+NUM_ADDER-1:NUM_ADDER] = mul_digit[NUM_ADDER-1].sum[C_WIDTH:1];
+//            assign y[C_WIDTH+NUM_ADDER-1:NUM_ADDER] = div_digit[NUM_ADDER-1].sum[C_WIDTH:1];
 //        end
 //    end
 //endmodule
 //
-//module hybrid_multiplier #
+//module hybrid_divider #
 //    (
 //        parameter integer C_WIDTH = 32,
 //        parameter integer FIXED_POINT = 8,
@@ -367,7 +375,7 @@ endmodule
 //        end
 //    end
 //
-//    partial_multiplier #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_mul (
+//    partial_divider #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_div (
 //        .a(a_reg),
 //        .b(b_reg[NUM_ADDER-1:0]),
 //        .y(part_result)
@@ -410,7 +418,7 @@ endmodule
 //endmodule
 //
 //// Hybrid (radix4 + array)
-//module radix4_partial_multiplier #
+//module radix4_partial_divider #
 //    (
 //        parameter integer C_WIDTH    = 32,
 //        parameter integer USE_CLA    = 0,
@@ -436,39 +444,39 @@ endmodule
 //        .y(a_x3)
 //    );
 //
-//    for (i = 0; i < NUM_ADDER; i = i+1) begin: mul_digit
+//    for (i = 0; i < NUM_ADDER; i = i+1) begin: div_digit
 //        wire [C_WIDTH+2:0] sum;
 //        wire [C_WIDTH+1:0] a_rad4;
 //
 //        // radix
-//        assign mul_digit[i].a_rad4 = (b[2*i+1:2*i] == 2'b00) ? 0 :
+//        assign div_digit[i].a_rad4 = (b[2*i+1:2*i] == 2'b00) ? 0 :
 //                                     (b[2*i+1:2*i] == 2'b01) ? {2'h0, a} :
 //                                     (b[2*i+1:2*i] == 2'b10) ? {1'h0, a_x2} :
 //                                     a_x3;
 //
 //        if (i == 0) begin
-//            assign mul_digit[i].sum = { 1'b0, mul_digit[i].a_rad4 };
+//            assign div_digit[i].sum = { 1'b0, div_digit[i].a_rad4 };
 //        end else begin
 //            adder #(.C_WIDTH(C_WIDTH+2), .USE_CLA(USE_CLA)) U_adder
 //            (
-//                .a(mul_digit[i].a_rad4),
-//                .b({1'h0, mul_digit[i-1].sum[C_WIDTH+2:2]}),
-//                .y(mul_digit[i].sum)
+//                .a(div_digit[i].a_rad4),
+//                .b({1'h0, div_digit[i-1].sum[C_WIDTH+2:2]}),
+//                .y(div_digit[i].sum)
 //            );
 //        end
 //    end
 //
-//    for (i = 0; i <= NUM_ADDER; i = i+1) begin: mul_result
+//    for (i = 0; i <= NUM_ADDER; i = i+1) begin: div_result
 //        if (i < NUM_ADDER) begin
-//            assign y[2*i+1:2*i] = mul_digit[i].sum[1:0];
+//            assign y[2*i+1:2*i] = div_digit[i].sum[1:0];
 //        end else begin
-//            assign y[C_WIDTH+2*NUM_ADDER-1:2*NUM_ADDER] = mul_digit[NUM_ADDER-1].sum[C_WIDTH+2:2];
+//            assign y[C_WIDTH+2*NUM_ADDER-1:2*NUM_ADDER] = div_digit[NUM_ADDER-1].sum[C_WIDTH+2:2];
 //        end
 //    end
 //endmodule
 //
-//// Radix-4 multiplier
-//module radix_multiplier #
+//// Radix-4 divider
+//module radix_divider #
 //    (
 //        parameter integer C_WIDTH     = 32,
 //        parameter integer USE_CLA     = 0,
@@ -600,7 +608,7 @@ endmodule
 //        end
 //    end
 //
-//    radix4_partial_multiplier #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_mul (
+//    radix4_partial_divider #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_div (
 //        .a(a_reg),
 //        .b(b_reg[2*NUM_ADDER-1:0]),
 //        .y(part_result)
