@@ -198,3 +198,32 @@ module multiplier #
         .value_out(y)
     );
 endmodule
+
+// Clock divider
+module clk_div #(
+        parameter integer C_WIDTH
+    )
+    (
+        input                clk_in,
+        input                reset,
+        input  [C_WIDTH-1:0] div_rate,
+        output               clk_out
+    );
+    reg [C_WIDTH-1:0] count;
+    reg               clk;
+
+    always @(posedge clk_in) begin
+        if (!reset) begin
+            count <= 0;
+            clk   <= 0;
+        end else begin
+            if (count < ((div_rate >> 1) - 1)) begin
+                count <= count+1;
+            end else begin
+                count <= 0;
+                clk   <= ~clk;
+            end
+        end
+    end
+    assign clk_out = clk;
+endmodule
