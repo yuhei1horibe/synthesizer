@@ -207,7 +207,6 @@ endmodule
 module divider #
     (
         parameter integer C_WIDTH     = 32,
-        parameter integer FIXED_POINT = 8,
         parameter integer USE_CLA     = 1,
         parameter integer DIV_TYPE    = 0
     )
@@ -254,7 +253,7 @@ module divider #
             );
         end
         1: begin
-            multi_cycle_divider #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT), .USE_CLA(USE_CLA)) U_div (
+            multi_cycle_divider #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_div (
                 .a(unsigned_a),
                 .b(unsigned_b),
                 .q(unsigned_q),
@@ -266,20 +265,21 @@ module divider #
                 .reset(reset)
             );
         end
-        //2: begin
-        //    hybrid_divider #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT), .USE_CLA(USE_CLA)) U_div (
-        //        .a(unsigned_a),
-        //        .b(unsigned_b),
-        //        .y(unsigned_y),
-        //        .ctl_clk(ctl_clk),
-        //        .trigger(trigger),
-        //        .ready(ready),
-        //        .done(done),
-        //        .reset(reset)
-        //    );
-        //end
+        2: begin
+            hybrid_divider #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_div (
+                .a(unsigned_a),
+                .b(unsigned_b),
+                .q(unsigned_q),
+                .r(unsigned_r),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
+            );
+        end
         //default: begin
-        //    radix_divider #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT), .USE_CLA(USE_CLA)) U_div (
+        //    radix_divider #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_div (
         //        .a(unsigned_a),
         //        .b(unsigned_b),
         //        .y(unsigned_y),
