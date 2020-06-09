@@ -248,16 +248,16 @@ module partial_divider #
     assign a_1 = { dummy, a };
 
     for (i = NUM_SUBS; i >= 0; i = i-1) begin: div_digit
-        wire [C_WIDTH+NUM_SUBS-1:0]  rem;
+        wire [C_WIDTH-1:0]  rem;
         wire q_1;
 
         if (i == NUM_SUBS) begin
-            assign div_digit[i].rem = a_1[2*C_WIDTH-1:C_WIDTH-NUM_SUBS];
+            assign div_digit[i].rem = a_1[2*C_WIDTH-1:C_WIDTH];
         end else begin
-            ctl_add_sub #(.C_WIDTH(C_WIDTH+NUM_SUBS), .USE_CLA(USE_CLA)) U_sub
+            ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_sub
             (
-                .a   ({ div_digit[i+1].rem[C_WIDTH+NUM_SUBS-2:0], a_1[i]}),
-                .b   ({dummy, b}),
+                .a   ({div_digit[i+1].rem[C_WIDTH-2:0], a_1[C_WIDTH-NUM_SUBS+i]}),
+                .b   (b),
                 .d   (div_digit[i].q_1),
                 .y   (div_digit[i].rem),
                 .pos (div_digit[i].q_1)
@@ -271,8 +271,7 @@ module partial_divider #
         end
     end
 
-    assign q[2*C_WIDTH-1:C_WIDTH] = div_digit[0].rem;
-    //assign q[C_WIDTH-1:NUM_SUBS]  = a_1[C_WIDTH-NUM_SUBS-1:0];
+    assign q[2*C_WIDTH-1:C_WIDTH] = { div_digit[0].rem[NUM_SUBS-1:0], a_1[C_WIDTH-NUM_SUBS-1:0] };
     assign q[C_WIDTH-1:NUM_SUBS]  = 0;
 endmodule
 
@@ -374,9 +373,11 @@ module hybrid_divider #
                 b_reg <= b_reg;
                 
                 // Calculation
-                calc_reg[NUM_SUBS-1:0]        <= part_result[NUM_SUBS-1:0];
-                calc_reg[2*C_WIDTH-1:C_WIDTH] <= part_result[2*C_WIDTH-1:C_WIDTH];
-                calc_reg[C_WIDTH-1:NUM_SUBS]  <= calc_reg[C_WIDTH-NUM_SUBS-1:0];
+                calc_reg[NUM_SUBS-1:0]                 <= part_result[NUM_SUBS-1:0];
+                calc_reg[2*C_WIDTH-1:C_WIDTH+NUM_SUBS] <= part_result[2*C_WIDTH-NUM_SUBS-1:C_WIDTH];
+                calc_reg[C_WIDTH+NUM_SUBS-1:NUM_SUBS]  <= calc_reg[C_WIDTH-1:0];
+                //calc_reg[2*C_WIDTH-1:NUM_SUBS] <= calc_reg[2*C_WIDTH-NUM_SUBS-1:0];
+                //calc_reg[C_WIDTH+NUM_SUBS-1:C_WIDTH]   <= calc_reg[C_WIDTH-1:NUM_SUBS];
             end else begin
                 a_reg    <= a_reg;
                 b_reg    <= b_reg;
@@ -386,7 +387,7 @@ module hybrid_divider #
     end
 
     partial_divider #(.C_WIDTH(C_WIDTH), .NUM_SUBS(NUM_SUBS), .USE_CLA(USE_CLA)) U_part_div (
-        .a(calc_reg[2*C_WIDTH-NUM_SUBS-1:C_WIDTH-NUM_SUBS]),
+        .a(calc_reg[2*C_WIDTH-1:C_WIDTH]),
         .b(b_reg),
         .q(part_result)
     );
