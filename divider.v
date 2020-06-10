@@ -261,9 +261,7 @@ module partial_divider #
     end
 
     for (i = 0; i < NUM_SUBS; i = i+1) begin: div_result
-        if (i < NUM_SUBS) begin
-            assign q[i] = div_digit[i].q_1;
-        end
+        assign q[i] = div_digit[i].q_1;
     end
 
     assign q[2*C_WIDTH-1:NUM_SUBS] = { div_digit[0].rem[C_WIDTH-1:0], a[C_WIDTH-NUM_SUBS-1:0] };
@@ -368,9 +366,6 @@ module hybrid_divider #
                 
                 // Calculation
                 calc_reg <= part_result;
-                //calc_reg[NUM_SUBS-1:0]                 <= part_result[NUM_SUBS-1:0];
-                //calc_reg[2*C_WIDTH-1:C_WIDTH+NUM_SUBS] <= part_result[2*C_WIDTH-NUM_SUBS-1:C_WIDTH];
-                //calc_reg[C_WIDTH+NUM_SUBS-1:NUM_SUBS]  <= calc_reg[C_WIDTH-1:0];
             end else begin
                 a_reg    <= a_reg;
                 b_reg    <= b_reg;
@@ -417,235 +412,237 @@ module hybrid_divider #
     assign done = done_reg;
 endmodule
 
-//// Hybrid (radix4 + array)
-//module radix4_partial_divider #
-//    (
-//        parameter integer C_WIDTH    = 32,
-//        parameter integer USE_CLA    = 0,
-//        parameter integer NUM_SUBS  = 4
-//    )
-//    (
-//        input wire  [C_WIDTH-1:0]             a,
-//        input wire  [2*NUM_SUBS-1:0]         b,
-//        output wire [2*NUM_SUBS+C_WIDTH-1:0] y
-//    );
-//    genvar i;
-//
-//    wire [C_WIDTH:0]   a_x2;
-//    wire [C_WIDTH+1:0] a_x3;
-//    wire dummy;
-//
-//    // Radix-4 table
-//    assign a_x2 = { a, 1'b0 };
-//    adder #(.C_WIDTH(C_WIDTH+1), .USE_CLA(USE_CLA)) U_adder_x3
-//    (
-//        .a({1'b0, a}),
-//        .b(a_x2),
-//        .y(a_x3)
-//    );
-//
-//    for (i = 0; i < NUM_SUBS; i = i+1) begin: div_digit
-//        wire [C_WIDTH+2:0] sum;
-//        wire [C_WIDTH+1:0] a_rad4;
-//
-//        // radix
-//        assign div_digit[i].a_rad4 = (b[2*i+1:2*i] == 2'b00) ? 0 :
-//                                     (b[2*i+1:2*i] == 2'b01) ? {2'h0, a} :
-//                                     (b[2*i+1:2*i] == 2'b10) ? {1'h0, a_x2} :
-//                                     a_x3;
-//
-//        if (i == 0) begin
-//            assign div_digit[i].sum = { 1'b0, div_digit[i].a_rad4 };
-//        end else begin
-//            adder #(.C_WIDTH(C_WIDTH+2), .USE_CLA(USE_CLA)) U_adder
-//            (
-//                .a(div_digit[i].a_rad4),
-//                .b({1'h0, div_digit[i-1].sum[C_WIDTH+2:2]}),
-//                .y(div_digit[i].sum)
-//            );
-//        end
-//    end
-//
-//    for (i = 0; i <= NUM_SUBS; i = i+1) begin: div_result
-//        if (i < NUM_SUBS) begin
-//            assign y[2*i+1:2*i] = div_digit[i].sum[1:0];
-//        end else begin
-//            assign y[C_WIDTH+2*NUM_SUBS-1:2*NUM_SUBS] = div_digit[NUM_SUBS-1].sum[C_WIDTH+2:2];
-//        end
-//    end
-//endmodule
-//
-//// Radix-4 divider
-//module radix_divider #
-//    (
-//        parameter integer C_WIDTH     = 32,
-//        parameter integer USE_CLA     = 0,
-//        parameter integer FIXED_POINT = 8
-//    )
-//    (
-//        input wire  [C_WIDTH-1:0] a,
-//        input wire  [C_WIDTH-1:0] b,
-//        output wire [C_WIDTH-1:0] y,
-//        input wire  ctl_clk,
-//        input wire  trigger,
-//        output wire ready,
-//        output wire done,
-//        input wire  reset
-//    );
-//    localparam NUM_SUBS    = 4;
-//
-//    localparam MUL_ST_RESET = 2'h0;
-//    localparam MUL_ST_CAL   = 2'h1;
-//    localparam MUL_ST_DONE  = 2'h2;
-//    localparam MUL_ST_ERROR = 2'h3;
-//    
-//    wire done_sig;
-//    reg ready_reg;
-//    reg done_reg;
-//    reg [C_WIDTH-1: 0] count;
-//    
-//    reg [1:0] state_reg;
-//    reg [C_WIDTH-1:0] a_reg;
-//    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
-//    
-//    reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
-//    reg [C_WIDTH-1:0] out_reg;
-//
-//    wire [C_WIDTH+2*NUM_SUBS-1:0] part_result;
-//    wire [C_WIDTH+2*NUM_SUBS-1:0] sum;
-//    wire dummy;
-//    wire [2*NUM_SUBS-1:0]dummy1;
-//    
-//    // Ready to accept new inputs
-//    always @(posedge ctl_clk) begin
-//        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
-//            ready_reg <= 1'b1;
-//        end else begin
-//            ready_reg <= 1'b0;
-//        end
-//    end
-//    assign ready = ready_reg;
-//    
-//    // State machine
-//    always @(negedge ctl_clk) begin
-//        if (!reset) begin
-//            state_reg <= MUL_ST_RESET;
-//        end else begin
-//            case (state_reg)
-//                MUL_ST_RESET: begin
-//                    if (trigger) begin
-//                        state_reg <= MUL_ST_CAL;
-//                    end
-//                end
-//                MUL_ST_CAL: begin
-//                    if (done_sig)
-//                        state_reg <= MUL_ST_DONE;
-//                end
-//                MUL_ST_DONE: begin
-//                    if (trigger) begin
-//                        state_reg <= MUL_ST_CAL;
-//                    end else begin
-//                        state_reg <= MUL_ST_RESET;
-//                    end
-//                end
-//                default: begin
-//                    state_reg <= MUL_ST_RESET;
-//                end
-//            endcase
-//        end
-//    end
-//    assign done_sig = (count >= (C_WIDTH/(2*NUM_SUBS))) ? 1 : 0;
-//    
-//    // Main calculation
-//    if ((C_WIDTH - 2*NUM_SUBS) > 0) begin
-//        always @(negedge ctl_clk) begin
-//            if (!reset) begin
-//                a_reg <= 0;
-//                b_reg <= 0;
-//                y_reg <= 0;
-//            end else begin
-//                if (ready && trigger) begin
-//                    a_reg <= a;
-//                    b_reg <= b;
-//                    y_reg[2*C_WIDTH-1:0] <= 0;
-//                end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-//                    a_reg <= a_reg;
-//                    b_reg <= b_reg >> (2 * NUM_SUBS);
-//                    
-//                    // Calculation
-//                    y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_SUBS] <= sum;
-//                    y_reg[C_WIDTH-2*NUM_SUBS-1:0]         <= y_reg[C_WIDTH-1:2*NUM_SUBS];
-//                end else begin
-//                    a_reg <= a_reg;
-//                    b_reg <= b_reg;
-//                    y_reg <= y_reg;
-//                end
-//            end
-//        end
-//    end else begin
-//        always @(negedge ctl_clk) begin
-//            if (!reset) begin
-//                a_reg <= 0;
-//                b_reg <= 0;
-//                y_reg <= 0;
-//            end else begin
-//                if (ready && trigger) begin
-//                    a_reg <= a;
-//                    b_reg <= b;
-//                    y_reg[2*C_WIDTH-1:0] <= 0;
-//                end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-//                    a_reg <= a_reg;
-//                    b_reg <= b_reg >> (2 * NUM_SUBS);
-//                    
-//                    // Calculation
-//                    y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_SUBS] <= sum;
-//                end else begin
-//                    a_reg <= a_reg;
-//                    b_reg <= b_reg;
-//                    y_reg <= y_reg;
-//                end
-//            end
-//        end
-//    end
-//
-//    radix4_partial_divider #(.C_WIDTH(C_WIDTH), .NUM_SUBS(NUM_SUBS), .USE_CLA(USE_CLA)) U_part_div (
-//        .a(a_reg),
-//        .b(b_reg[2*NUM_SUBS-1:0]),
-//        .y(part_result)
-//    );
-//
-//    adder #(.C_WIDTH(C_WIDTH+2*NUM_SUBS), .USE_CLA(USE_CLA)) U_adder (
-//        .a(part_result),
-//        .b({ dummy1, y_reg[2*C_WIDTH-1:C_WIDTH] }),
-//        .y({ dummy,sum })
-//    );
-//    assign dummy1 = 0;
-//    
-//    // Counter for calculation
-//    always @(negedge ctl_clk) begin
-//        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
-//            count <= count + 1;
-//        end else begin
-//            count <= 0;
-//        end
-//    end
-//
-//    // Output
-//    always @(posedge ctl_clk) begin
-//        if (!reset) begin
-//            out_reg  <= 0;
-//            done_reg <= 0;
-//        end else begin
-//            if (done_sig == 1) begin
-//                // Fixed point calculation
-//                out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
-//                done_reg <= 1'b1;
-//            end else begin
-//                out_reg  <= out_reg;
-//                done_reg <= 1'b0;
-//            end
-//        end
-//    end
-//    assign y    = out_reg;
-//    assign done = done_reg;
-//endmodule
+// Hybrid (radix4 + array)
+module radix4_partial_divider #
+    (
+        parameter integer C_WIDTH  = 32,
+        parameter integer NUM_SUBS = 4,
+        parameter integer USE_CLA  = 0
+    )
+    (
+        input wire [2*C_WIDTH-1:0]  a,
+        input wire [C_WIDTH-1:0]    b,
+        output wire [2*C_WIDTH-1:0] q
+    );
+    genvar i;
+
+    wire [C_WIDTH-1:0] divisor_x1;
+    wire [C_WIDTH-1:0] divisor_x2;
+    wire [C_WIDTH-1:0] divisor_x3;
+
+    assign divisor_x1 = b;
+    assign divisor_x2 = {b[C_WIDTH-2:0], 1'b0};
+    adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_add
+        (
+            .a (divisor_x1),
+            .b (divisor_x2),
+            .y ({dummy2, divisor_x3})
+        );
+
+    for (i = NUM_SUBS; i >= 0; i = i-1) begin: div_digit
+        wire [C_WIDTH-1:0] rem;
+        wire [2:0]         q_1;
+        wire [1:0]         q_digit;
+        wire [C_WIDTH-1:0] dividend;
+        wire [C_WIDTH-1:0] rem_x1;
+        wire [C_WIDTH-1:0] rem_x2;
+        wire [C_WIDTH-1:0] rem_x3;
+        wire dummy2;
+
+        if (i == NUM_SUBS) begin
+            assign div_digit[i].rem = a[2*C_WIDTH-1:C_WIDTH];
+        end else begin
+            // Radix-4 table
+            assign dividend   = {div_digit[i+1].rem[C_WIDTH-3:0], a[C_WIDTH-2*(NUM_SUBS-i)+1:C_WIDTH-2*(NUM_SUBS-i)]};
+
+            // Subtraction
+            ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_subx1
+            (
+                .a   (div_digit[i].dividend),
+                .b   (divisor_x1),
+                .d   (div_digit[i].q_1[0]),
+                .y   (div_digit[i].rem_x1),
+                .pos (div_digit[i].q_1[0])
+            );
+
+            ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_subx2
+            (
+                .a   (div_digit[i].dividend),
+                .b   (divisor_x2),
+                .d   (div_digit[i].q_1[1]),
+                .y   (div_digit[i].rem_x2),
+                .pos (div_digit[i].q_1[1])
+            );
+
+            ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_subx3
+            (
+                .a   (div_digit[i].dividend),
+                .b   (divisor_x3),
+                .d   (div_digit[i].q_1[2]),
+                .y   (div_digit[i].rem_x3),
+                .pos (div_digit[i].q_1[2])
+            );
+            // Priority selector
+            assign div_digit[i].rem     = q_1[2] ? div_digit[i].rem_x3 :
+                                          q_1[1] ? div_digit[i].rem_x2 :
+                                          q_1[0] ? div_digit[i].rem_x1 :
+                                          dividend;
+
+            assign div_digit[i].q_digit = q_1[2] ? 2'h3 :
+                                          q_1[1] ? 2'h2 :
+                                          q_1[0] ? 2'h1 :
+                                          2'h0;
+        end
+    end
+
+    for (i = 0; i < NUM_SUBS; i = i+1) begin: div_result
+        assign q[2*i+1:2*i] = div_digit[i].q_digit;
+    end
+
+    assign q[2*C_WIDTH-1:2*NUM_SUBS] = { div_digit[0].rem[C_WIDTH-1:0], a[C_WIDTH-2*NUM_SUBS-1:0] };
+endmodule
+
+module radix4_divider #
+    (
+        parameter integer C_WIDTH = 32,
+        parameter integer USE_CLA = 0
+    )
+    (
+        input wire  [C_WIDTH-1:0] a,
+        input wire  [C_WIDTH-1:0] b,
+        output wire [C_WIDTH-1:0] q,
+        output wire [C_WIDTH-1:0] r,
+        input wire  ctl_clk,
+        input wire  trigger,
+        output wire ready,
+        output wire done,
+        input wire  reset
+    );
+    localparam NUM_SUBS     = 4;
+
+    localparam MUL_ST_RESET = 2'h0;
+    localparam MUL_ST_CAL   = 2'h1;
+    localparam MUL_ST_DONE  = 2'h2;
+    localparam MUL_ST_ERROR = 2'h3;
+    
+    wire done_sig;
+    reg ready_reg;
+    reg done_reg;
+    reg [C_WIDTH-1: 0] count;
+    
+    reg [1:0] state_reg;
+    reg [C_WIDTH-1:0] a_reg;
+    reg [C_WIDTH-1:0] b_reg;
+    
+    reg [2*C_WIDTH-1:0] calc_reg;
+    reg [C_WIDTH-1:0]   q_reg;
+    reg [C_WIDTH-1:0]   r_reg;
+
+    wire [C_WIDTH-1:0] diff;
+
+    wire [2*C_WIDTH-1:0] part_result;
+    wire dummy;
+    
+    // Ready to accept new inputs
+    always @(posedge ctl_clk) begin
+        if (reset && ((state_reg == MUL_ST_RESET) || (state_reg == MUL_ST_DONE))) begin
+            ready_reg <= 1'b1;
+        end else begin
+            ready_reg <= 1'b0;
+        end
+    end
+    assign ready = ready_reg;
+    
+    // State machine
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            state_reg <= MUL_ST_RESET;
+        end else begin
+            case (state_reg)
+                MUL_ST_RESET: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end
+                end
+                MUL_ST_CAL: begin
+                    if (done_sig)
+                        state_reg <= MUL_ST_DONE;
+                end
+                MUL_ST_DONE: begin
+                    if (trigger) begin
+                        state_reg <= MUL_ST_CAL;
+                    end else begin
+                        state_reg <= MUL_ST_RESET;
+                    end
+                end
+                default: begin
+                    state_reg <= MUL_ST_RESET;
+                end
+            endcase
+        end
+    end
+    assign done_sig = (count >= (C_WIDTH/(2*NUM_SUBS))) ? 1 : 0;
+    
+    // Main calculation
+    always @(negedge ctl_clk) begin
+        if (!reset) begin
+            a_reg <= 0;
+            b_reg <= 0;
+            calc_reg <= 0;
+        end else begin
+            if (ready && trigger) begin
+                a_reg <= a;
+                b_reg <= b;
+                calc_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
+                calc_reg[C_WIDTH-1:0]         <= a;
+            end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
+                a_reg <= a_reg;
+                b_reg <= b_reg;
+                
+                // Calculation
+                calc_reg <= part_result;
+            end else begin
+                a_reg    <= a_reg;
+                b_reg    <= b_reg;
+                calc_reg <= calc_reg;
+            end
+        end
+    end
+
+    radix4_partial_divider #(.C_WIDTH(C_WIDTH), .NUM_SUBS(NUM_SUBS), .USE_CLA(USE_CLA)) U_part_div (
+        .a(calc_reg[2*C_WIDTH-1:0]),
+        .b(b_reg),
+        .q(part_result)
+    );
+    
+    // Counter for calculation
+    always @(negedge ctl_clk) begin
+        if (reset && (state_reg == MUL_ST_CAL) && !done_sig) begin
+            count <= count + 1;
+        end else begin
+            count <= 0;
+        end
+    end
+
+    // Output
+    always @(posedge ctl_clk) begin
+        if (!reset) begin
+            q_reg    <= 0;
+            r_reg    <= 0;
+            done_reg <= 0;
+        end else begin
+            if (done_sig == 1) begin
+                // Fixed point calculation
+                q_reg    <= calc_reg[C_WIDTH-1:0];
+                r_reg    <= calc_reg[2*C_WIDTH-1:C_WIDTH];
+                done_reg <= 1'b1;
+            end else begin
+                q_reg    <= q_reg;
+                done_reg <= 1'b0;
+            end
+        end
+    end
+    assign q    = q_reg;
+    assign r    = r_reg;
+    assign done = done_reg;
+endmodule

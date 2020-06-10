@@ -278,18 +278,19 @@ module divider #
                 .reset(reset)
             );
         end
-        //default: begin
-        //    radix_divider #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_div (
-        //        .a(unsigned_a),
-        //        .b(unsigned_b),
-        //        .y(unsigned_y),
-        //        .ctl_clk(ctl_clk),
-        //        .trigger(trigger),
-        //        .ready(ready),
-        //        .done(done),
-        //        .reset(reset)
-        //    );
-        //end
+        default: begin
+            radix4_divider #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_div (
+                .a(unsigned_a),
+                .b(unsigned_b),
+                .q(unsigned_q),
+                .r(unsigned_r),
+                .ctl_clk(ctl_clk),
+                .trigger(trigger),
+                .ready(ready),
+                .done(done),
+                .reset(reset)
+            );
+        end
     endcase
 
     // TODO: This is not correct...leave it for now

@@ -8,11 +8,11 @@ module div_test;
     wire ready0;
     wire ready1;
     wire ready2;
-    //wire ready3;
+    wire ready3;
     wire done0;
     wire done1;
     wire done2;
-    //wire done3;
+    wire done3;
     reg rst;
     reg trigger;
     reg [BITWIDTH-1:0]  a;
@@ -20,11 +20,11 @@ module div_test;
     wire [BITWIDTH-1:0] q0;
     wire [BITWIDTH-1:0] q1;
     wire [BITWIDTH-1:0] q2;
-    //wire [BITWIDTH-1:0] q3;
+    wire [BITWIDTH-1:0] q3;
     wire [BITWIDTH-1:0] r0;
     wire [BITWIDTH-1:0] r1;
     wire [BITWIDTH-1:0] r2;
-    //wire [BITWIDTH-1:0] r3;
+    wire [BITWIDTH-1:0] r3;
 
 
     // Clock
@@ -111,17 +111,18 @@ module div_test;
         .reset(rst)
     );
 
-    //divider #(.C_WIDTH(BITWIDTH), .FIXED_POINT(FIXED_POINT), .MUL_TYPE(0)) UUT3 (
-    //    .a(a),
-    //    .b(b),
-    //    .q(q3),
-    //    .signed_cal(signed_cal),
-    //    .ctl_clk(clock),
-    //    .trigger(trigger),
-    //    .ready(ready3),
-    //    .done(done3),
-    //    .reset(rst)
-    //);
+    divider #(.C_WIDTH(BITWIDTH), .DIV_TYPE(3), .USE_CLA(1)) UUT3 (
+        .a(a),
+        .b(b),
+        .q(q3),
+        .r(r3),
+        .signed_cal(signed_cal),
+        .ctl_clk(clock),
+        .trigger(trigger),
+        .ready(ready3),
+        .done(done3),
+        .reset(rst)
+    );
 
 endmodule
 
