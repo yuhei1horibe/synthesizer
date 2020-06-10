@@ -65,7 +65,6 @@ module multi_cycle_multiplier #
     
     reg [1:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
-    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
     
     reg [2*C_WIDTH-1:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0]   out_reg;
@@ -117,23 +116,20 @@ module multi_cycle_multiplier #
     always @(negedge ctl_clk) begin
         if (!reset) begin
             a_reg <= 0;
-            b_reg <= 0;
             y_reg <= 0;
         end else begin
             if (ready && trigger) begin
                 a_reg <= a;
-                b_reg <= b;
-                y_reg[2*C_WIDTH-1:0] <= 0;
+                y_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
+                y_reg[C_WIDTH-1:0]         <= b;
             end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
                 a_reg <= a_reg;
-                b_reg <= b_reg >> 1;
                 
                 // Calculation
                 y_reg[C_WIDTH-2:0]           <= y_reg[C_WIDTH-1:1];
                 y_reg[2*C_WIDTH-1:C_WIDTH-1] <= sum;
             end else begin
                 a_reg <= a_reg;
-                b_reg <= b_reg;
                 y_reg <= y_reg;
             end
         end
@@ -143,7 +139,7 @@ module multi_cycle_multiplier #
         .b(multiplicand),
         .y(sum)
     );
-    assign multiplicand = ((b_reg[0] == 1'b1) ? a_reg : 0);
+    assign multiplicand = ((y_reg[0] == 1'b1) ? a_reg : 0);
     
     // Counter for calculation
     always @(negedge ctl_clk) begin
@@ -245,7 +241,6 @@ module hybrid_multiplier #
     
     reg [1:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
-    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
@@ -299,23 +294,20 @@ module hybrid_multiplier #
     always @(negedge ctl_clk) begin
         if (!reset) begin
             a_reg <= 0;
-            b_reg <= 0;
             y_reg <= 0;
         end else begin
             if (ready && trigger) begin
                 a_reg <= a;
-                b_reg <= b;
-                y_reg[2*C_WIDTH-1:0] <= 0;
+                y_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
+                y_reg[C_WIDTH-1:0]         <= b;
             end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
                 a_reg <= a_reg;
-                b_reg <= b_reg >> NUM_ADDER;
                 
                 // Calculation
                 y_reg[C_WIDTH-NUM_ADDER-1:0]         <= y_reg[C_WIDTH-1:NUM_ADDER];
                 y_reg[2*C_WIDTH-1:C_WIDTH-NUM_ADDER] <= sum;
             end else begin
                 a_reg <= a_reg;
-                b_reg <= b_reg;
                 y_reg <= y_reg;
             end
         end
@@ -323,7 +315,7 @@ module hybrid_multiplier #
 
     partial_multiplier #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_mul (
         .a(a_reg),
-        .b(b_reg[NUM_ADDER-1:0]),
+        .b(y_reg[NUM_ADDER-1:0]),
         .y(part_result)
     );
 
@@ -452,7 +444,6 @@ module radix_multiplier #
     
     reg [1:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
-    reg [C_WIDTH  :0] b_reg;  // Max count + 1 bit
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
@@ -507,23 +498,20 @@ module radix_multiplier #
         always @(negedge ctl_clk) begin
             if (!reset) begin
                 a_reg <= 0;
-                b_reg <= 0;
                 y_reg <= 0;
             end else begin
                 if (ready && trigger) begin
                     a_reg <= a;
-                    b_reg <= b;
-                    y_reg[2*C_WIDTH-1:0] <= 0;
+                    y_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
+                    y_reg[C_WIDTH-1:0]         <= b;
                 end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
                     a_reg <= a_reg;
-                    b_reg <= b_reg >> (2 * NUM_ADDER);
                     
                     // Calculation
                     y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_ADDER] <= sum;
                     y_reg[C_WIDTH-2*NUM_ADDER-1:0]         <= y_reg[C_WIDTH-1:2*NUM_ADDER];
                 end else begin
                     a_reg <= a_reg;
-                    b_reg <= b_reg;
                     y_reg <= y_reg;
                 end
             end
@@ -532,22 +520,18 @@ module radix_multiplier #
         always @(negedge ctl_clk) begin
             if (!reset) begin
                 a_reg <= 0;
-                b_reg <= 0;
                 y_reg <= 0;
             end else begin
                 if (ready && trigger) begin
                     a_reg <= a;
-                    b_reg <= b;
                     y_reg[2*C_WIDTH-1:0] <= 0;
                 end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
                     a_reg <= a_reg;
-                    b_reg <= b_reg >> (2 * NUM_ADDER);
                     
                     // Calculation
                     y_reg[2*C_WIDTH-1:C_WIDTH-2*NUM_ADDER] <= sum;
                 end else begin
                     a_reg <= a_reg;
-                    b_reg <= b_reg;
                     y_reg <= y_reg;
                 end
             end
@@ -556,7 +540,7 @@ module radix_multiplier #
 
     radix4_partial_multiplier #(.C_WIDTH(C_WIDTH), .NUM_ADDER(NUM_ADDER), .USE_CLA(USE_CLA)) U_part_mul (
         .a(a_reg),
-        .b(b_reg[2*NUM_ADDER-1:0]),
+        .b(y_reg[2*NUM_ADDER-1:0]),
         .y(part_result)
     );
 
