@@ -310,7 +310,7 @@ endmodule
 
 // Clock divider
 module clk_div #(
-        parameter integer C_WIDTH
+        parameter integer C_WIDTH = 8
     )
     (
         input                clk_in,
