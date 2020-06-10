@@ -110,7 +110,6 @@ module multi_cycle_divider #
     reg [C_WIDTH-1: 0] count;
     
     reg [1:0] state_reg;
-    reg [C_WIDTH-1:0] a_reg;
     reg [C_WIDTH-1:0] b_reg;
     
     reg [2*C_WIDTH-1:0] calc_reg;
@@ -163,17 +162,14 @@ module multi_cycle_divider #
     // Main calculation
     always @(negedge ctl_clk) begin
         if (!reset) begin
-            a_reg    <= 0;
             b_reg    <= 0;
             calc_reg <= 0;
         end else begin
             if (ready && trigger) begin
-                a_reg <= a;
                 b_reg <= b;
                 calc_reg[C_WIDTH-1:0]         <= a;
                 calc_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
             end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-                a_reg <= a_reg;
                 b_reg <= b_reg;
                 
                 // Calculation
@@ -181,7 +177,6 @@ module multi_cycle_divider #
                 calc_reg[C_WIDTH:1]           <= calc_reg[C_WIDTH-1:0];
                 calc_reg[2*C_WIDTH-1:C_WIDTH] <= diff;
             end else begin
-                a_reg    <= a_reg;
                 b_reg    <= b_reg;
                 calc_reg <= calc_reg;
             end
@@ -296,14 +291,11 @@ module hybrid_divider #
     reg [C_WIDTH-1: 0] count;
     
     reg [1:0] state_reg;
-    reg [C_WIDTH-1:0] a_reg;
     reg [C_WIDTH-1:0] b_reg;
     
     reg [2*C_WIDTH-1:0] calc_reg;
     reg [C_WIDTH-1:0]   q_reg;
     reg [C_WIDTH-1:0]   r_reg;
-
-    wire [C_WIDTH-1:0] diff;
 
     wire [2*C_WIDTH-1:0] part_result;
     wire dummy;
@@ -351,23 +343,19 @@ module hybrid_divider #
     // Main calculation
     always @(negedge ctl_clk) begin
         if (!reset) begin
-            a_reg <= 0;
             b_reg <= 0;
             calc_reg <= 0;
         end else begin
             if (ready && trigger) begin
-                a_reg <= a;
                 b_reg <= b;
                 calc_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
                 calc_reg[C_WIDTH-1:0]         <= a;
             end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-                a_reg <= a_reg;
                 b_reg <= b_reg;
                 
                 // Calculation
                 calc_reg <= part_result;
             end else begin
-                a_reg    <= a_reg;
                 b_reg    <= b_reg;
                 calc_reg <= calc_reg;
             end
@@ -531,14 +519,11 @@ module radix4_divider #
     reg [C_WIDTH-1: 0] count;
     
     reg [1:0] state_reg;
-    reg [C_WIDTH-1:0] a_reg;
     reg [C_WIDTH-1:0] b_reg;
     
     reg [2*C_WIDTH-1:0] calc_reg;
     reg [C_WIDTH-1:0]   q_reg;
     reg [C_WIDTH-1:0]   r_reg;
-
-    wire [C_WIDTH-1:0] diff;
 
     wire [2*C_WIDTH-1:0] part_result;
     wire dummy;
@@ -586,23 +571,19 @@ module radix4_divider #
     // Main calculation
     always @(negedge ctl_clk) begin
         if (!reset) begin
-            a_reg <= 0;
             b_reg <= 0;
             calc_reg <= 0;
         end else begin
             if (ready && trigger) begin
-                a_reg <= a;
                 b_reg <= b;
                 calc_reg[2*C_WIDTH-1:C_WIDTH] <= 0;
                 calc_reg[C_WIDTH-1:0]         <= a;
             end else if ((state_reg == MUL_ST_CAL) && !done_sig) begin
-                a_reg <= a_reg;
                 b_reg <= b_reg;
                 
                 // Calculation
                 calc_reg <= part_result;
             end else begin
-                a_reg    <= a_reg;
                 b_reg    <= b_reg;
                 calc_reg <= calc_reg;
             end
