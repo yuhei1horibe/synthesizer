@@ -419,7 +419,7 @@ module radix4_partial_divider #
     wire [C_WIDTH+1:0] divisor_x3;
 
     assign divisor_x1 = b;
-    assign divisor_x2 = {b[C_WIDTH-2:0], 1'b0};
+    assign divisor_x2 = {b[C_WIDTH-1:0], 1'b0};
     adder #(.C_WIDTH(C_WIDTH+1), .USE_CLA(USE_CLA)) U_add
         (
             .a ({1'b0, divisor_x1}),

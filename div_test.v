@@ -48,14 +48,14 @@ module div_test;
         //b       <= 32'h1bca53c2;
         //a       <= 8'h0f;
         //b       <= 8'h05;
-        a       <= 32'h6c05929a;
-        b       <= 32'h6aef0c38;
+        a       <= 32'hf3ee391a;
+        b       <= 32'ha950e5ed;
 
         #10;
         trigger <= 1'b1;
         #10;
         trigger <= 1'b0;
-        #50;
+        #90;
         //signed_cal <= 1;
         //a          <= 32'h5;
         //b          <= 32'hfffffffd;
@@ -68,7 +68,7 @@ module div_test;
         trigger    <= 1'b1;
         #10;
         trigger    <= 1'b0;
-        #50;
+        #90;
         $finish;
     end
 
