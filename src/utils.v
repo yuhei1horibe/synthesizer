@@ -361,6 +361,7 @@ endmodule
 module tdm_mul #(
         parameter integer C_WIDTH     = 32,
         parameter integer FIXED_POINT = 8,
+        parameter integer MUL_TYPE    = 3,
         parameter integer NUM_UNITS   = 32
     )
     (
@@ -405,7 +406,7 @@ module tdm_mul #(
         assign in_b[i] = input_mux[i].b;
 
         // Input latch
-        always @(posedge main_clk) begin
+        always @(negedge main_clk) begin
             if (!main_rst) begin
                 input_mux[i].a <= 0;
                 input_mux[i].b <= 0;
@@ -441,7 +442,7 @@ module tdm_mul #(
             case (state_reg)
                 STAT_RESET: begin
                     // TODO CDC implementation
-                    if (main_clk) begin
+                    if (!main_clk) begin
                         state_reg <= STAT_CALC;
                     end else begin
                         state_reg <= STAT_RESET;
@@ -455,7 +456,7 @@ module tdm_mul #(
                     end
                 end
                 STAT_DONE: begin
-                    if (main_clk) begin
+                    if (!main_clk) begin
                         state_reg <= STAT_DONE;
                     end else begin
                         state_reg <= STAT_RESET;
@@ -500,7 +501,7 @@ module tdm_mul #(
     multiplier #(
         .C_WIDTH(C_WIDTH),
         .FIXED_POINT(FIXED_POINT),
-        .MUL_TYPE(3),
+        .MUL_TYPE(MUL_TYPE),
         .USE_CLA(1)
     ) U_mul
     (
@@ -510,7 +511,7 @@ module tdm_mul #(
         .signed_cal(1'b1),
         .ctl_clk(ctl_clk),
         .reset(ctl_rst),
-        .trigger(trig_sig),
+        .trigger(trig_reg),
         .done(calc_done),
         .ready(ready_sig)
     );
