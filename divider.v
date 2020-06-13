@@ -227,7 +227,7 @@ endmodule
 module partial_divider #
     (
         parameter integer C_WIDTH  = 32,
-        parameter integer NUM_SUBS = 4,
+        parameter integer NUM_SUBS = 2,
         parameter integer USE_CLA  = 0
     )
     (
@@ -505,7 +505,7 @@ module radix4_divider #
         output wire done,
         input wire  reset
     );
-    localparam NUM_SUBS     = 4;
+    localparam NUM_SUBS     = 2;
 
     localparam MUL_ST_RESET = 2'h0;
     localparam MUL_ST_CAL   = 2'h1;
