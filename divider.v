@@ -415,16 +415,16 @@ module radix4_partial_divider #
     genvar i;
 
     wire [C_WIDTH-1:0] divisor_x1;
-    wire [C_WIDTH-1:0] divisor_x2;
-    wire [C_WIDTH-1:0] divisor_x3;
+    wire [C_WIDTH:0]   divisor_x2;
+    wire [C_WIDTH+1:0] divisor_x3;
 
     assign divisor_x1 = b;
     assign divisor_x2 = {b[C_WIDTH-2:0], 1'b0};
-    adder #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_add
+    adder #(.C_WIDTH(C_WIDTH+1), .USE_CLA(USE_CLA)) U_add
         (
-            .a (divisor_x1),
+            .a ({1'b0, divisor_x1}),
             .b (divisor_x2),
-            .y ({dummy2, divisor_x3})
+            .y (divisor_x3)
         );
 
     for (i = NUM_SUBS; i >= 0; i = i-1) begin: div_digit
@@ -435,7 +435,6 @@ module radix4_partial_divider #
         wire [C_WIDTH-1:0] rem_x1;
         wire [C_WIDTH-1:0] rem_x2;
         wire [C_WIDTH-1:0] rem_x3;
-        wire dummy2;
 
         if (i == NUM_SUBS) begin
             assign div_digit[i].rem = a[2*C_WIDTH-1:C_WIDTH];
@@ -456,7 +455,7 @@ module radix4_partial_divider #
             ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_subx2
             (
                 .a   (div_digit[i].dividend),
-                .b   (divisor_x2),
+                .b   (divisor_x2[C_WIDTH-1:0]),
                 .d   (div_digit[i].q_1[1]),
                 .y   (div_digit[i].rem_x2),
                 .pos (div_digit[i].q_1[1])
@@ -465,19 +464,19 @@ module radix4_partial_divider #
             ctl_add_sub #(.C_WIDTH(C_WIDTH), .USE_CLA(USE_CLA)) U_subx3
             (
                 .a   (div_digit[i].dividend),
-                .b   (divisor_x3),
+                .b   (divisor_x3[C_WIDTH-1:0]),
                 .d   (div_digit[i].q_1[2]),
                 .y   (div_digit[i].rem_x3),
                 .pos (div_digit[i].q_1[2])
             );
             // Priority selector
-            assign div_digit[i].rem     = q_1[2] ? div_digit[i].rem_x3 :
-                                          q_1[1] ? div_digit[i].rem_x2 :
+            assign div_digit[i].rem     = q_1[2] & !divisor_x3[C_WIDTH+1] & !divisor_x3[C_WIDTH]? div_digit[i].rem_x3 :
+                                          q_1[1] & !divisor_x2[C_WIDTH] ? div_digit[i].rem_x2 :
                                           q_1[0] ? div_digit[i].rem_x1 :
                                           dividend;
 
-            assign div_digit[i].q_digit = q_1[2] ? 2'h3 :
-                                          q_1[1] ? 2'h2 :
+            assign div_digit[i].q_digit = q_1[2] & !divisor_x3[C_WIDTH+1] & !divisor_x3[C_WIDTH] ? 2'h3 :
+                                          q_1[1] & !divisor_x2[C_WIDTH] ? 2'h2 :
                                           q_1[0] ? 2'h1 :
                                           2'h0;
         end
