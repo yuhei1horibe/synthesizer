@@ -1,3 +1,23 @@
+// Macro
+`define CLOG2(x) \
+   (x <= 2)     ? 1  : \
+   (x <= 4)     ? 2  : \
+   (x <= 8)     ? 3  : \
+   (x <= 16)    ? 4  : \
+   (x <= 32)    ? 5  : \
+   (x <= 64)    ? 6  : \
+   (x <= 128)   ? 7  : \
+   (x <= 256)   ? 8  : \
+   (x <= 512)   ? 9  : \
+   (x <= 1024)  ? 10 : \
+   (x <= 2048)  ? 11 : \
+   (x <= 4096)  ? 12 : \
+   (x <= 8192)  ? 13 : \
+   (x <= 16384) ? 14 : \
+   (x <= 32768) ? 15 : \
+   (x <= 65536) ? 16 : \
+   -1
+
 // Sign converter
 module sign_converter #
     (
@@ -335,4 +355,163 @@ module clk_div #(
         end
     end
     assign clk_out = clk;
+endmodule
+
+// TDM (Time division multiplexed) multiplier
+module tdm_mul #(
+        parameter integer C_WIDTH     = 32,
+        parameter integer FIXED_POINT = 8,
+        parameter integer NUM_UNITS   = 32
+    )
+    (
+        input wire [C_WIDTH*NUM_UNITS-1:0] multiplicands,
+        input wire [C_WIDTH*NUM_UNITS-1:0] multipliers,
+        input wire [C_WIDTH*NUM_UNITS-1:0] products,
+        input wire               ctl_clk,
+        input wire               ctl_rst,
+        input wire               main_clk,
+        input wire               main_rst
+    );
+    localparam IDX_WIDTH = `CLOG2(NUM_UNITS);
+    localparam STAT_RESET = 2'h0;
+    localparam STAT_CALC  = 2'h1;
+    localparam STAT_DONE  = 2'h2;
+    genvar i;
+
+    reg trig_reg;
+    reg [1:0]state_reg;
+    reg [IDX_WIDTH-1:0]idx_reg;
+    wire done_sig;
+    wire calc_done;
+    wire trig_sig;
+    wire ready_sig;
+
+    wire [C_WIDTH-1:0] in_a[NUM_UNITS-1:0];
+    wire [C_WIDTH-1:0] in_b[NUM_UNITS-1:0];
+
+    // Input to multiplier
+    wire [C_WIDTH-1:0] mul_in_a;
+    wire [C_WIDTH-1:0] mul_in_b;
+    wire [C_WIDTH-1:0] mul_out;
+
+    for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
+        reg [C_WIDTH-1:0] a;
+        reg [C_WIDTH-1:0] b;
+        reg [C_WIDTH-1:0] y;
+
+        assign products[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].y;
+
+        assign in_a[i] = input_mux[i].a;
+        assign in_b[i] = input_mux[i].b;
+
+        // Input latch
+        always @(posedge main_clk) begin
+            if (!main_rst) begin
+                input_mux[i].a <= 0;
+                input_mux[i].b <= 0;
+            end else begin
+                input_mux[i].a <= multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
+                input_mux[i].b <= multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
+            end
+        end
+
+        // Output
+        always @(posedge ctl_clk) begin
+            if (!ctl_rst) begin
+                input_mux[i].y <= 0;
+            end else begin
+                if (calc_done) begin
+                    if (idx_reg == i) begin
+                        input_mux[i].y <= mul_out;
+                    end else begin
+                        input_mux[i].y <= input_mux[i].y;
+                    end
+                end else begin
+                    input_mux[i].y <= input_mux[i].y;
+                end
+            end
+        end
+    end
+
+    // Multiplexing
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            state_reg <= STAT_RESET;
+        end else begin
+            case (state_reg)
+                STAT_RESET: begin
+                    // TODO CDC implementation
+                    if (main_clk) begin
+                        state_reg <= STAT_CALC;
+                    end else begin
+                        state_reg <= STAT_RESET;
+                    end
+                end
+                STAT_CALC: begin
+                    if (done_sig) begin
+                        state_reg <= STAT_DONE;
+                    end else begin
+                        state_reg <= STAT_CALC;
+                    end
+                end
+                STAT_DONE: begin
+                    if (main_clk) begin
+                        state_reg <= STAT_DONE;
+                    end else begin
+                        state_reg <= STAT_RESET;
+                    end
+                end
+                default: begin
+                    state_reg <= STAT_RESET;
+                end
+            endcase
+        end
+    end
+    assign done_sig = (idx_reg == (NUM_UNITS - 1)) ? 1 : 0;
+
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            idx_reg = 0;
+        end else begin
+            if (calc_done) begin
+                idx_reg <= idx_reg+1;
+            end else begin
+                idx_reg <= idx_reg;
+            end
+        end
+    end
+    assign mul_in_a = in_a[idx_reg];
+    assign mul_in_b = in_b[idx_reg];
+
+    // Trigger
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            trig_reg <= 1'b0;
+        end else begin
+            if ((state_reg == STAT_CALC) && ready_sig)begin
+                trig_reg <= 1'b1;
+            end else begin
+                trig_reg <= 1'b0;
+            end
+        end
+    end
+
+    // multiplier
+    multiplier #(
+        .C_WIDTH(C_WIDTH),
+        .FIXED_POINT(FIXED_POINT),
+        .MUL_TYPE(3),
+        .USE_CLA(1)
+    ) U_mul
+    (
+        .a(mul_in_a),
+        .b(mul_in_b),
+        .y(mul_out),
+        .signed_cal(1'b1),
+        .ctl_clk(ctl_clk),
+        .reset(ctl_rst),
+        .trigger(trig_sig),
+        .done(calc_done),
+        .ready(ready_sig)
+    );
 endmodule
