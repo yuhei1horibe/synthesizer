@@ -396,25 +396,27 @@ module tdm_mul #(
     wire [C_WIDTH-1:0] mul_out;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
-        reg [C_WIDTH-1:0] a;
-        reg [C_WIDTH-1:0] b;
+        //reg [C_WIDTH-1:0] a;
+        //reg [C_WIDTH-1:0] b;
         reg [C_WIDTH-1:0] y;
 
         assign products[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].y;
 
-        assign in_a[i] = input_mux[i].a;
-        assign in_b[i] = input_mux[i].b;
+        //assign in_a[i] = input_mux[i].a;
+        //assign in_b[i] = input_mux[i].b;
+        assign in_a[i] = multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        assign in_b[i] = multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
 
         // Input latch
-        always @(negedge main_clk) begin
-            if (!main_rst) begin
-                input_mux[i].a <= 0;
-                input_mux[i].b <= 0;
-            end else begin
-                input_mux[i].a <= multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
-                input_mux[i].b <= multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
-            end
-        end
+        //always @(negedge main_clk) begin
+        //    if (!main_rst) begin
+        //        input_mux[i].a <= 0;
+        //        input_mux[i].b <= 0;
+        //    end else begin
+        //        input_mux[i].a <= multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //        input_mux[i].b <= multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //    end
+        //end
 
         // Output
         always @(posedge ctl_clk) begin
@@ -442,7 +444,8 @@ module tdm_mul #(
             case (state_reg)
                 STAT_RESET: begin
                     // TODO CDC implementation
-                    if (!main_clk) begin
+                    //if (!main_clk) begin
+                    if (main_clk) begin
                         state_reg <= STAT_CALC;
                     end else begin
                         state_reg <= STAT_RESET;
@@ -456,7 +459,8 @@ module tdm_mul #(
                     end
                 end
                 STAT_DONE: begin
-                    if (!main_clk) begin
+                    //if (!main_clk) begin
+                    if (main_clk) begin
                         state_reg <= STAT_DONE;
                     end else begin
                         state_reg <= STAT_RESET;

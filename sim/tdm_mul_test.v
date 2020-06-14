@@ -24,10 +24,15 @@ module tdm_mul_test;
         assign mul_b[BITWIDTH*(i+1)-1:BITWIDTH*i] = b[i];
         assign y[i]                               = mul_y[BITWIDTH*(i+1)-1:BITWIDTH*i];
 
+        initial begin
+            a[i] <= $urandom & 32'h7FFFFFFF;
+            b[i] <= $urandom & 8'h7F;
+        end
+
         // Generate operands
-        always #800 begin
-            a[i] <= $urandom;
-            b[i] <= $urandom & 8'hFF;
+        always #600 begin
+            a[i] <= $urandom & 32'h7FFFFFFF;
+            b[i] <= $urandom & 8'h7F;
         end
     end
 
@@ -35,7 +40,7 @@ module tdm_mul_test;
     always #5 begin
         ctl_clk <= ~ctl_clk;
     end
-    always #600 begin
+    always #300 begin
         main_clk <= ~main_clk;
     end
 
@@ -44,10 +49,10 @@ module tdm_mul_test;
         main_clk <= 1'b0;
         main_rst <= 1'b0;
         ctl_rst  <= 1'b0;
-        #650;
+        #150;
         main_rst <= 1'b1;
         ctl_rst  <= 1'b1;
-        #5200;
+        #2600;
         $finish;
     end
 
