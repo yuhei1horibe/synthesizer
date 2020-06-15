@@ -377,9 +377,9 @@ module tdm_mul #(
         parameter integer NUM_UNITS   = 32
     )
     (
-        input wire [C_WIDTH*NUM_UNITS-1:0] multiplicands,
-        input wire [C_WIDTH*NUM_UNITS-1:0] multipliers,
-        input wire [C_WIDTH*NUM_UNITS-1:0] products,
+        input wire  [C_WIDTH*NUM_UNITS-1:0] multiplicands,
+        input wire  [C_WIDTH*NUM_UNITS-1:0] multipliers,
+        output wire [C_WIDTH*NUM_UNITS-1:0] products,
         input wire               ctl_clk,
         input wire               ctl_rst,
         input wire               main_clk,
