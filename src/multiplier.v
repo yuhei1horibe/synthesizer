@@ -47,6 +47,7 @@ module multi_cycle_multiplier #
         input wire  [C_WIDTH-1:0] a,
         input wire  [C_WIDTH-1:0] b,
         output wire [C_WIDTH-1:0] y,
+        output wire overflow,
         input wire  ctl_clk,
         input wire  trigger,
         output wire ready,
@@ -65,6 +66,7 @@ module multi_cycle_multiplier #
     
     reg [1:0] state_reg;
     reg [C_WIDTH-1:0] a_reg;
+    reg of_reg;
     
     reg [2*C_WIDTH-1:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0]   out_reg;
@@ -155,20 +157,24 @@ module multi_cycle_multiplier #
     always @(posedge ctl_clk) begin
         if (!reset) begin
             out_reg  <= 0;
+            of_reg   <= 0;
             done_reg <= 0;
         end else begin
             if (done_sig == 1) begin
                 // Fixed point calculation
                 out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                of_reg   <= (y_reg[2*C_WIDTH-1:C_WIDTH+FIXED_POINT] != 0) ? 1'b1 : 1'b0;
                 done_reg <= 1'b1;
             end else begin
                 out_reg  <= out_reg;
+                of_reg   <= of_reg;
                 done_reg <= 1'b0;
             end
         end
     end
-    assign y    = out_reg;
-    assign done = done_reg;
+    assign y        = out_reg;
+    assign done     = done_reg;
+    assign overflow = of_reg;
 endmodule
 
 // Hybrid
@@ -221,6 +227,7 @@ module hybrid_multiplier #
         input wire  [C_WIDTH-1:0] a,
         input wire  [C_WIDTH-1:0] b,
         output wire [C_WIDTH-1:0] y,
+        output wire overflow,
         input wire  ctl_clk,
         input wire  trigger,
         output wire ready,
@@ -244,6 +251,7 @@ module hybrid_multiplier #
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
+    reg of_reg;
 
     wire [C_WIDTH+NUM_ADDER-1:0] part_result;
     wire [C_WIDTH+NUM_ADDER-1:0] sum;
@@ -339,20 +347,24 @@ module hybrid_multiplier #
     always @(posedge ctl_clk) begin
         if (!reset) begin
             out_reg  <= 0;
+            of_reg   <= 0;
             done_reg <= 0;
         end else begin
             if (done_sig == 1) begin
                 // Fixed point calculation
                 out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                of_reg   <= (y_reg[2*C_WIDTH-1:C_WIDTH+FIXED_POINT] != 0) ? 1'b1 : 1'b0;
                 done_reg <= 1'b1;
             end else begin
                 out_reg  <= out_reg;
+                of_reg   <= of_reg;
                 done_reg <= 1'b0;
             end
         end
     end
-    assign y    = out_reg;
-    assign done = done_reg;
+    assign y        = out_reg;
+    assign done     = done_reg;
+    assign overflow = of_reg;
 endmodule
 
 // Hybrid (radix4 + array)
@@ -424,6 +436,7 @@ module radix_multiplier #
         input wire  [C_WIDTH-1:0] a,
         input wire  [C_WIDTH-1:0] b,
         output wire [C_WIDTH-1:0] y,
+        output wire overflow,
         input wire  ctl_clk,
         input wire  trigger,
         output wire ready,
@@ -447,6 +460,7 @@ module radix_multiplier #
     
     reg [2*C_WIDTH:0] y_reg;  // Consider the carry bit
     reg [C_WIDTH-1:0] out_reg;
+    reg               of_reg;
 
     wire [C_WIDTH+2*NUM_ADDER-1:0] part_result;
     wire [C_WIDTH+2*NUM_ADDER-1:0] sum;
@@ -564,18 +578,22 @@ module radix_multiplier #
     always @(posedge ctl_clk) begin
         if (!reset) begin
             out_reg  <= 0;
+            of_reg   <= 0;
             done_reg <= 0;
         end else begin
             if (done_sig == 1) begin
                 // Fixed point calculation
                 out_reg  <= y_reg[C_WIDTH-1+FIXED_POINT:FIXED_POINT];
+                of_reg   <= (y_reg[2*C_WIDTH-1:C_WIDTH+FIXED_POINT] != 0) ? 1'b1 : 1'b0;
                 done_reg <= 1'b1;
             end else begin
                 out_reg  <= out_reg;
+                of_reg   <= of_reg;
                 done_reg <= 1'b0;
             end
         end
     end
-    assign y    = out_reg;
-    assign done = done_reg;
+    assign y        = out_reg;
+    assign done     = done_reg;
+    assign overflow = of_reg;
 endmodule

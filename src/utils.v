@@ -143,12 +143,17 @@ module multiplier #
         input wire  trigger,
         output wire ready,
         output wire done,
+        output wire overflow,
         input wire  reset
     );
+    localparam integer max_val = (1 << (C_WIDTH-1)) - 1;
+
     // Remove sign before the calculation
     wire [C_WIDTH-1:0] unsigned_a;
     wire [C_WIDTH-1:0] unsigned_b;
     wire [C_WIDTH-1:0] unsigned_y;
+    wire [C_WIDTH-1:0] clipped;
+    wire of_sig;
     wire sign;
 
     sign_converter #(.C_WIDTH(C_WIDTH)) U_sign_a (
@@ -183,6 +188,7 @@ module multiplier #
                 .trigger(trigger),
                 .ready(ready),
                 .done(done),
+                .overflow(of_sig),
                 .reset(reset)
             );
         end
@@ -195,6 +201,7 @@ module multiplier #
                 .trigger(trigger),
                 .ready(ready),
                 .done(done),
+                .overflow(of_sig),
                 .reset(reset)
             );
         end
@@ -207,14 +214,19 @@ module multiplier #
                 .trigger(trigger),
                 .ready(ready),
                 .done(done),
+                .overflow(of_sig),
                 .reset(reset)
             );
         end
     endcase
 
+    // Clipping
+    assign overflow = of_sig | (signed_cal & unsigned_y[C_WIDTH-1]);
+    assign clipped = overflow ? max_val : unsigned_y;
+
     sign_converter #(.C_WIDTH(C_WIDTH)) U_sign_y (
         .sign     (sign),
-        .value_in (unsigned_y),
+        .value_in (clipped),
         .value_out(y)
     );
 endmodule
@@ -386,6 +398,7 @@ module tdm_mul #(
     wire calc_done;
     wire trig_sig;
     wire ready_sig;
+    wire overflow;
 
     wire [C_WIDTH-1:0] in_a[NUM_UNITS-1:0];
     wire [C_WIDTH-1:0] in_b[NUM_UNITS-1:0];
@@ -443,7 +456,6 @@ module tdm_mul #(
         end else begin
             case (state_reg)
                 STAT_RESET: begin
-                    // TODO CDC implementation
                     //if (!main_clk) begin
                     if (main_clk) begin
                         state_reg <= STAT_CALC;
@@ -512,6 +524,7 @@ module tdm_mul #(
         .a(mul_in_a),
         .b(mul_in_b),
         .y(mul_out),
+        .overflow(overflow),
         .signed_cal(1'b1),
         .ctl_clk(ctl_clk),
         .reset(ctl_rst),
