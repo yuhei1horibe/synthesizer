@@ -533,3 +533,174 @@ module tdm_mul #(
         .ready(ready_sig)
     );
 endmodule
+
+// TDM (Time division multiplexed) divider
+module tdm_div #(
+        parameter integer C_WIDTH     = 32,
+        parameter integer DIV_TYPE    = 3,
+        parameter integer NUM_UNITS   = 32
+    )
+    (
+        input wire  [C_WIDTH*NUM_UNITS-1:0] dividends,
+        input wire  [C_WIDTH*NUM_UNITS-1:0] divisors,
+        output wire [C_WIDTH*NUM_UNITS-1:0] quotients,
+        output wire [C_WIDTH*NUM_UNITS-1:0] reminders,
+        input wire               ctl_clk,
+        input wire               ctl_rst,
+        input wire               main_clk,
+        input wire               main_rst
+    );
+    localparam IDX_WIDTH = `CLOG2(NUM_UNITS);
+    localparam STAT_RESET = 2'h0;
+    localparam STAT_CALC  = 2'h1;
+    localparam STAT_DONE  = 2'h2;
+    genvar i;
+
+    reg trig_reg;
+    reg [1:0]state_reg;
+    reg [IDX_WIDTH-1:0]idx_reg;
+    wire done_sig;
+    wire calc_done;
+    wire trig_sig;
+    wire ready_sig;
+    wire overflow;
+
+    wire [C_WIDTH-1:0] in_a[NUM_UNITS-1:0];
+    wire [C_WIDTH-1:0] in_b[NUM_UNITS-1:0];
+
+    // Input to multiplier
+    wire [C_WIDTH-1:0] div_in_a;
+    wire [C_WIDTH-1:0] div_in_b;
+    wire [C_WIDTH-1:0] div_q_out;
+    wire [C_WIDTH-1:0] div_r_out;
+
+    for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
+        //reg [C_WIDTH-1:0] a;
+        //reg [C_WIDTH-1:0] b;
+        reg [C_WIDTH-1:0] q;
+        reg [C_WIDTH-1:0] r;
+
+        assign quotients[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].q;
+        assign reminders[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].r;
+
+        //assign in_a[i] = input_mux[i].a;
+        //assign in_b[i] = input_mux[i].b;
+        assign in_a[i] = dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        assign in_b[i] = divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
+
+        // Input latch
+        //always @(negedge main_clk) begin
+        //    if (!main_rst) begin
+        //        input_mux[i].a <= 0;
+        //        input_mux[i].b <= 0;
+        //    end else begin
+        //        input_mux[i].a <= dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //        input_mux[i].b <= divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //    end
+        //end
+
+        // Output
+        always @(posedge ctl_clk) begin
+            if (!ctl_rst) begin
+                input_mux[i].q <= 0;
+                input_mux[i].r <= 0;
+            end else begin
+                if (calc_done) begin
+                    if (idx_reg == i) begin
+                        input_mux[i].q <= div_q_out;
+                        input_mux[i].r <= div_r_out;
+                    end else begin
+                        input_mux[i].q <= input_mux[i].q;
+                        input_mux[i].r <= input_mux[i].r;
+                    end
+                end else begin
+                    input_mux[i].q <= input_mux[i].q;
+                    input_mux[i].r <= input_mux[i].r;
+                end
+            end
+        end
+    end
+
+    // Multiplexing
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            state_reg <= STAT_RESET;
+        end else begin
+            case (state_reg)
+                STAT_RESET: begin
+                    //if (!main_clk) begin
+                    if (main_clk) begin
+                        state_reg <= STAT_CALC;
+                    end else begin
+                        state_reg <= STAT_RESET;
+                    end
+                end
+                STAT_CALC: begin
+                    if (done_sig) begin
+                        state_reg <= STAT_DONE;
+                    end else begin
+                        state_reg <= STAT_CALC;
+                    end
+                end
+                STAT_DONE: begin
+                    //if (!main_clk) begin
+                    if (main_clk) begin
+                        state_reg <= STAT_DONE;
+                    end else begin
+                        state_reg <= STAT_RESET;
+                    end
+                end
+                default: begin
+                    state_reg <= STAT_RESET;
+                end
+            endcase
+        end
+    end
+    assign done_sig = (idx_reg == (NUM_UNITS - 1)) ? 1 : 0;
+
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            idx_reg = 0;
+        end else begin
+            if (calc_done) begin
+                idx_reg <= idx_reg+1;
+            end else begin
+                idx_reg <= idx_reg;
+            end
+        end
+    end
+    assign div_in_a = in_a[idx_reg];
+    assign div_in_b = in_b[idx_reg];
+
+    // Trigger
+    always @(posedge ctl_clk) begin
+        if (!ctl_rst) begin
+            trig_reg <= 1'b0;
+        end else begin
+            if ((state_reg == STAT_CALC) && ready_sig)begin
+                trig_reg <= 1'b1;
+            end else begin
+                trig_reg <= 1'b0;
+            end
+        end
+    end
+
+    // divider
+    divider #(
+        .C_WIDTH(C_WIDTH),
+        .DIV_TYPE(DIV_TYPE),
+        .USE_CLA(1)
+    ) U_div
+    (
+        .a(div_in_a),
+        .b(div_in_b),
+        .q(div_q_out),
+        .r(div_r_out),
+        .signed_cal(1'b1),
+        .ctl_clk(ctl_clk),
+        .reset(ctl_rst),
+        .trigger(trig_reg),
+        .done(calc_done),
+        .ready(ready_sig)
+    );
+endmodule
