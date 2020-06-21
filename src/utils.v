@@ -704,3 +704,40 @@ module tdm_div #(
         .ready(ready_sig)
     );
 endmodule
+
+// Sync reset generation
+module reset_gen (
+    input  fast_clk,
+    input  fast_rst,
+    input  slow_clk,
+    output slow_rst
+    );
+
+    reg rst_reg;
+    reg hold;
+
+    always @(fast_clk) begin
+        if (!fast_rst) begin
+            rst_reg <= 0;
+        end else begin
+            if (slow_clk | hold) begin
+                rst_reg <= rst_reg;
+            end else begin
+                rst_reg <= 1'b1;
+            end
+        end
+    end
+
+    always @(fast_clk) begin
+        if (!fast_clk) begin
+            hold <= 1;
+        end else begin
+            if (!slow_clk) begin
+                hold <= hold;
+            end else begin
+                hold <= 1'b0;
+            end
+        end
+    end
+    assign slow_rst = rst_reg;
+endmodule
