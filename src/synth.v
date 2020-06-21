@@ -127,6 +127,6 @@ module synth #(
     );
 
     // TODO: Add mixer at the end
-    assign wave_out = wave_out_sig[BITWIDTH-1:0];
+    assign wave_out = wave_out_sig[C_WIDTH-1:FIXED_POINT];
 endmodule
 

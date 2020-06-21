@@ -46,9 +46,9 @@ module synth_test;
         #2000;
 
         // Test signals
-        wave_type_reg[0] <= 2'h0;
+        wave_type_reg[0] <= 2'h2;
         wave_type_reg[1] <= 2'h1;
-        wave_type_reg[2] <= 2'h2;
+        wave_type_reg[2] <= 2'h0;
         wave_type_reg[3] <= 2'h0;
 
         freq[0] <= 16'd220;

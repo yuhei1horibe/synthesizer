@@ -29,7 +29,7 @@ module wave_gen #(
         input                clk_in,
         input                reset,
         input  [C_WIDTH-1:0] div_rate,
-        output [C_WIDTH-1:0] sql_out,
+        output [C_WIDTH-1:0] sqr_out,
         output [C_WIDTH-1:0] saw_out,
         output [C_WIDTH-1:0] tri_out,
 
@@ -49,41 +49,55 @@ module wave_gen #(
     reg [C_WIDTH-1:0] tri_reg;
     reg               clk;
 
+    wire  [C_WIDTH-1:0] div_rate_1;
+    wire overflow;
+
+    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub (
+        .a(div_rate),
+        .b(1),
+        .y({overflow, div_rate_1}),
+        .sub(1'b1)
+    );
+
     // Calculation
     assign dividends     = max_val;
-    assign divisors      = div_rate;
+    assign divisors      = div_rate_1;
     assign multiplicands = count;
     assign multipliers   = quotients;
 
     always @(posedge clk_in) begin
         if (!reset) begin
             count   <= 0;
-            saw_reg <= 0;
-            tri_reg <= 0;
+            saw_reg <= neg_max;
+            tri_reg <= neg_max;
             clk     <= 0;
         end else begin
-            if (count < ((div_rate >> 1) - 1)) begin
+            if (count < (div_rate - 1)) begin
                 count   <= count+1;
-                saw_reg <= saw_reg+{quotients[C_WIDTH-2:0], 1'b0};
-                if (!clk) begin
-                    tri_reg <= neg_max+{quotients[C_WIDTH-3:0], 2'b00};
+                saw_reg <= saw_reg + {quotients[C_WIDTH-2:0], 1'b0};
+                clk     <= count > ((div_rate >> 1) - 1);
+                if (count > ((div_rate >> 1) - 1)) begin
+                    tri_reg <= tri_reg-{quotients[C_WIDTH-3:0], 2'b00};
                 end else begin
-                    tri_reg <= max_val-{quotients[C_WIDTH-3:0], 2'b00};
+                    tri_reg <= tri_reg+{quotients[C_WIDTH-3:0], 2'b00};
                 end
             end else begin
+                clk     <= 0;
                 count   <= 0;
-                saw_reg <= 0;
-                tri_reg <= max_val;
-                clk     <= ~clk;
+                saw_reg <= neg_max;
+                tri_reg <= neg_max;
             end
         end
     end
 
     // Square wave out
-    assign sql_out = clk ? max_val : neg_max;
+    assign sqr_out = clk ? max_val : neg_max;
 
     // Saw wave out
     assign saw_out = saw_reg;
+
+    // Triangle wave out
+    assign tri_out = tri_reg;
 endmodule
 
 
@@ -119,27 +133,29 @@ module vco #
         input  [C_WIDTH*NUM_UNITS-1:0]   products
     );
 
-    wire [C_WIDTH-1:0]   sample_rate;
-    wire [C_WIDTH*NUM_UNITS-1:0] sql_out;
-    wire [C_WIDTH*NUM_UNITS-1:0] saw_out;
-    wire [C_WIDTH*NUM_UNITS-1:0] tri_out;
-    wire [C_WIDTH-FREQ_WIDTH-1:0] freq_dummy;
+    wire [BITWIDTH-1:0]            sample_rate;
+    wire [C_WIDTH*NUM_UNITS-1:0]   sqr_out;
+    wire [C_WIDTH*NUM_UNITS-1:0]   saw_out;
+    wire [C_WIDTH*NUM_UNITS-1:0]   tri_out;
+    wire [BITWIDTH-FREQ_WIDTH-1:0] freq_dummy;
+    wire [FIXED_POINT-1:0]         fraction;
     genvar i;
 
     assign sample_rate = aud_freq ? 96000 : 48000;
     assign freq_dummy  = 0;
+    assign fraction    = 0;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: gen_units
         // Frequency ratio calculation
-        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = sample_rate[C_WIDTH-1:0];
-        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {freq_dummy, freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i]};
+        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = {sample_rate[C_WIDTH-FIXED_POINT-1:0], fraction};
+        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {freq_dummy, freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i], fraction};
 
         // Wave generator
         wave_gen #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_gen (
             .clk_in(aud_clk),
             .reset(aud_rst),
             .div_rate(quotients[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .sql_out(sql_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
+            .sqr_out(sqr_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
             .saw_out(saw_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
             .tri_out(tri_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
             .dividends(dividends[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
@@ -154,5 +170,5 @@ module vco #
     // Wave output
     assign wave_out = wave_type[1] ?
                       wave_type[0] ? 0       : tri_out :
-                      wave_type[0] ? saw_out : sql_out;
+                      wave_type[0] ? saw_out : sqr_out;
 endmodule
