@@ -4,15 +4,13 @@
 	module my_synth_v1_0 #
 	(
 		// Users to add parameters here
-        parameter integer HW_TYPE               = 0,
-        parameter integer MUL_OR_DIV_TYPE       = 3,
-        parameter integer USE_CLA               = 1,
+        parameter integer NUM_UNITS             = 32,
 		// User parameters ends
 		// Do not modify the parameters beyond this line
 
 		// Parameters of Axi Slave Bus Interface S00_AXI
 		parameter integer C_S00_AXI_DATA_WIDTH	= 32,
-		parameter integer C_S00_AXI_ADDR_WIDTH	= 6
+		parameter integer C_S00_AXI_ADDR_WIDTH	= 10
 	)
 	(
 		// Users to add ports here
@@ -46,9 +44,7 @@
 	);
 // Instantiation of Axi Bus Interface S00_AXI
 	my_synth_v1_0_S00_AXI # (
-	    .HW_TYPE(HW_TYPE),
-	    .MUL_OR_DIV_TYPE(MUL_OR_DIV_TYPE),
-	    .USE_CLA(USE_CLA),
+        .NUM_UNITS(NUM_UNITS),
 		.C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
 		.C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
 	) my_synth_v1_0_S00_AXI_inst (

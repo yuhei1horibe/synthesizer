@@ -134,8 +134,8 @@ module vco #
         input                             aud_freq, // 0: 48kHz, 1: 96kHz
         input                             aud_clk,
         input                             aud_rst,
-        input                             ctl_clk,
-        input                             ctl_rst,
+        //input                             ctl_clk,
+        //input                             ctl_rst,
 
         // Signals for internal calculation
         output [C_WIDTH*NUM_UNITS*2-1:0] dividends,

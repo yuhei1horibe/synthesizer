@@ -112,8 +112,8 @@ module synth #(
     ) U_vco (
         .freq_in(freq_in),
         .wave_type(wave_type),
-        .ctl_clk(ctl_clk),
-        .ctl_rst(ctl_rst),
+        //.ctl_clk(ctl_clk),
+        //.ctl_rst(ctl_rst),
         .aud_clk(aud_clk),
         .aud_rst(aud_rst),
         .aud_freq(aud_freq),

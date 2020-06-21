@@ -716,7 +716,7 @@ module reset_gen (
     reg rst_reg;
     reg hold;
 
-    always @(fast_clk) begin
+    always @(posedge fast_clk) begin
         if (!fast_rst) begin
             rst_reg <= 0;
         end else begin
@@ -728,7 +728,7 @@ module reset_gen (
         end
     end
 
-    always @(fast_clk) begin
+    always @(posedge fast_clk) begin
         if (!fast_clk) begin
             hold <= 1;
         end else begin
