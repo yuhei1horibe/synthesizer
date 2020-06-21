@@ -42,50 +42,55 @@ module wave_gen #(
         input  [C_WIDTH-1:0] products
     );
     // 50% of actual max value
-    localparam integer max_val = (1 << (C_WIDTH-2)) - 1;
-    localparam integer neg_max = ~max_val + 1;
+    localparam integer max_val      = (1 << (C_WIDTH-2))-1;
+    localparam integer max_val_half = (1 << (C_WIDTH-3))-1;
+    localparam integer neg_max      = ~max_val + 1;
+    localparam integer neg_max_half = ~max_val_half + 1;
+    localparam integer BITWIDTH     = C_WIDTH - FIXED_POINT;
     reg [C_WIDTH-1:0] count;
     reg [C_WIDTH-1:0] saw_reg;
     reg [C_WIDTH-1:0] tri_reg;
     reg               clk;
 
     wire  [C_WIDTH-1:0] div_rate_1;
+    wire  [FIXED_POINT-1:0] fraction;
     wire overflow;
 
     subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub (
         .a(div_rate),
-        .b(1),
+        .b(1 << FIXED_POINT),
         .y({overflow, div_rate_1}),
         .sub(1'b1)
     );
 
     // Calculation
-    assign dividends     = max_val;
-    assign divisors      = div_rate_1;
-    assign multiplicands = count;
+    assign dividends     = max_val << 1;
+    assign divisors      = {fraction, div_rate_1[C_WIDTH-1:FIXED_POINT]};
+    assign multiplicands = {count[BITWIDTH-1:0], fraction};
     assign multipliers   = quotients;
+    assign fraction      = 0;
 
     always @(posedge clk_in) begin
         if (!reset) begin
-            count   <= 0;
+            count   <= 1;
             saw_reg <= neg_max;
             tri_reg <= neg_max;
             clk     <= 0;
         end else begin
-            if (count < (div_rate - 1)) begin
+            if (count < (div_rate >> FIXED_POINT)) begin
                 count   <= count+1;
-                saw_reg <= saw_reg + {quotients[C_WIDTH-2:0], 1'b0};
-                clk     <= count > ((div_rate >> 1) - 1);
-                if (count > ((div_rate >> 1) - 1)) begin
-                    tri_reg <= tri_reg-{quotients[C_WIDTH-3:0], 2'b00};
+                saw_reg <= neg_max + products[C_WIDTH-1:0];
+                clk     <= count > ((div_rate >> (1 + FIXED_POINT)) - 1);
+                if (count > ((div_rate >> (1 + FIXED_POINT)) - 1)) begin
+                    tri_reg <= (max_val + max_val_half) - products[C_WIDTH-1:0];
                 end else begin
-                    tri_reg <= tri_reg+{quotients[C_WIDTH-3:0], 2'b00};
+                    tri_reg <= neg_max_half + products[C_WIDTH-1:0];
                 end
             end else begin
                 clk     <= 0;
-                count   <= 0;
+                count   <= 1;
                 saw_reg <= neg_max;
-                tri_reg <= neg_max;
+                tri_reg <= neg_max_half;
             end
         end
     end
@@ -97,7 +102,7 @@ module wave_gen #(
     assign saw_out = saw_reg;
 
     // Triangle wave out
-    assign tri_out = tri_reg;
+    assign tri_out = tri_reg << 1;
 endmodule
 
 
@@ -133,12 +138,12 @@ module vco #
         input  [C_WIDTH*NUM_UNITS-1:0]   products
     );
 
-    wire [BITWIDTH-1:0]            sample_rate;
-    wire [C_WIDTH*NUM_UNITS-1:0]   sqr_out;
-    wire [C_WIDTH*NUM_UNITS-1:0]   saw_out;
-    wire [C_WIDTH*NUM_UNITS-1:0]   tri_out;
-    wire [BITWIDTH-FREQ_WIDTH-1:0] freq_dummy;
-    wire [FIXED_POINT-1:0]         fraction;
+    wire [BITWIDTH-1:0]           sample_rate;
+    wire [C_WIDTH*NUM_UNITS-1:0]  sqr_out;
+    wire [C_WIDTH*NUM_UNITS-1:0]  saw_out;
+    wire [C_WIDTH*NUM_UNITS-1:0]  tri_out;
+    wire [C_WIDTH-FREQ_WIDTH-1:0] freq_dummy;
+    wire [FIXED_POINT-1:0]        fraction;
     genvar i;
 
     assign sample_rate = aud_freq ? 96000 : 48000;
@@ -147,8 +152,8 @@ module vco #
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: gen_units
         // Frequency ratio calculation
-        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = {sample_rate[C_WIDTH-FIXED_POINT-1:0], fraction};
-        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {freq_dummy, freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i], fraction};
+        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = {sample_rate[BITWIDTH-1:0], fraction};
+        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {freq_dummy, freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i]};
 
         // Wave generator
         wave_gen #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_gen (

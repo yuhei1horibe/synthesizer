@@ -51,7 +51,7 @@ module synth_test;
         wave_type_reg[2] <= 2'h0;
         wave_type_reg[3] <= 2'h0;
 
-        freq[0] <= 16'd220;
+        freq[0] <= 16'd4000;
         freq[1] <= 16'd440;
         freq[2] <= 16'd880;
         freq[3] <= 16'd1760;
