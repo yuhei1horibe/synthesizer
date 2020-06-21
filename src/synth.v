@@ -21,20 +21,22 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module synth #(
-    parameter integer  BITWIDTH    = 24,
-    parameter integer  FIXED_POINT = 8,
-    parameter integer  NUM_UNITS   = 32
+    parameter integer BITWIDTH    = 24,
+    parameter integer FIXED_POINT = 8,
+    parameter integer FREQ_WIDTH  = 16,
+    parameter integer AMP_WIDTH   = 16,
+    parameter integer NUM_UNITS   = 32
     )
     (
         input  [16*NUM_UNITS-1:0] freq_in,
+        input  [16*NUM_UNITS-1:0] amp_in,
         input  [2*NUM_UNITS-1:0]  wave_type,
         input  ctl_clk,
         input  ctl_rst,
         input  aud_freq, // 0: 48kHz, 1: 96kHz
         output [BITWIDTH-1:0]     wave_out
     );
-    localparam integer C_WIDTH     = BITWIDTH + FIXED_POINT;
-    localparam integer FREQ_WIDTH  = 16;
+    localparam integer C_WIDTH    = BITWIDTH + FIXED_POINT;
 
     wire aud_clk;
     wire aud_rst;
@@ -126,7 +128,15 @@ module synth #(
         .quotients(quotients)
     );
 
-    // TODO: Add mixer at the end
-    assign wave_out = wave_out_sig[C_WIDTH-1:FIXED_POINT];
+    // Audio mixer
+    aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix (
+        .wave_in(wave_out_sig),
+        .amp(amp_in),
+        .aud_clk(aud_clk),
+        .aud_rst(aud_rst),
+        .ctl_clk(ctl_clk),
+        .ctl_rst(ctl_rst),
+        .wave_out(wave_out)
+    );
 endmodule
 

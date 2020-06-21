@@ -28,10 +28,9 @@ module wave_gen #(
     (
         input                clk_in,
         input                reset,
+        input  [1:0]         wave_type,
         input  [C_WIDTH-1:0] div_rate,
-        output [C_WIDTH-1:0] sqr_out,
-        output [C_WIDTH-1:0] saw_out,
-        output [C_WIDTH-1:0] tri_out,
+        output [C_WIDTH-1:0] wave_out,
 
         // Signals for internal calculation
         output [C_WIDTH-1:0] dividends,
@@ -51,6 +50,10 @@ module wave_gen #(
     reg [C_WIDTH-1:0] saw_reg;
     reg [C_WIDTH-1:0] tri_reg;
     reg               clk;
+
+    wire [C_WIDTH-1:0] sqr_out;
+    wire [C_WIDTH-1:0] saw_out;
+    wire [C_WIDTH-1:0] tri_out;
 
     wire  [C_WIDTH-1:0] div_rate_1;
     wire  [FIXED_POINT-1:0] fraction;
@@ -103,6 +106,11 @@ module wave_gen #(
 
     // Triangle wave out
     assign tri_out = tri_reg << 1;
+
+    // Wave output
+    assign wave_out = wave_type[1] ?
+                      wave_type[0] ? 0       : tri_out :
+                      wave_type[0] ? saw_out : sqr_out;
 endmodule
 
 
@@ -139,9 +147,6 @@ module vco #
     );
 
     wire [BITWIDTH-1:0]           sample_rate;
-    wire [C_WIDTH*NUM_UNITS-1:0]  sqr_out;
-    wire [C_WIDTH*NUM_UNITS-1:0]  saw_out;
-    wire [C_WIDTH*NUM_UNITS-1:0]  tri_out;
     wire [C_WIDTH-FREQ_WIDTH-1:0] freq_dummy;
     wire [FIXED_POINT-1:0]        fraction;
     genvar i;
@@ -159,10 +164,9 @@ module vco #
         wave_gen #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_gen (
             .clk_in(aud_clk),
             .reset(aud_rst),
+            .wave_type(wave_type[2*(i+1)-1:2*i]),
             .div_rate(quotients[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .sqr_out(sqr_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .saw_out(saw_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .tri_out(tri_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
+            .wave_out(wave_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
             .dividends(dividends[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
             .divisors(divisors[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
             .quotients(quotients[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
@@ -171,9 +175,4 @@ module vco #
             .products(products[C_WIDTH*(i+1)-1:C_WIDTH*i])
         );
     end
-
-    // Wave output
-    assign wave_out = wave_type[1] ?
-                      wave_type[0] ? 0       : tri_out :
-                      wave_type[0] ? saw_out : sqr_out;
 endmodule

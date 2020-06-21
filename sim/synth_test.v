@@ -6,20 +6,26 @@ module synth_test;
     localparam FIXED_POINT = 8;
     localparam NUM_UNITS   = 4;
     localparam FREQ_WIDTH  = 16;
+    localparam AMP_WIDTH   = 16;
     localparam C_WIDTH     = 32;
     reg  ctl_clk;
     reg  ctl_rst;
     reg  aud_freq;
-    reg  [C_WIDTH-1:0] freq[NUM_UNITS-1:0];
-    reg  [1:0]         wave_type_reg[NUM_UNITS-1:0];
+    reg  [FREQ_WIDTH-1:0] freq[NUM_UNITS-1:0];
+    reg  [AMP_WIDTH-1:0]  amp[NUM_UNITS-1:0];
+    reg  [1:0]            wave_type_reg[NUM_UNITS-1:0];
 
     wire  [FREQ_WIDTH*NUM_UNITS-1:0] freq_in;
+    wire  [AMP_WIDTH*NUM_UNITS-1:0]  amp_in;
     wire  [2*NUM_UNITS-1:0]          wave_type;
     wire  [BITWIDTH-1:0]             wave_out;
+    wire  [C_WIDTH-FREQ_WIDTH-1:0]   freq_ext;
+    wire  [C_WIDTH-AMP_WIDTH-1:0]    amp_ext;
     genvar i;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin
         assign freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i] = freq[i];
+        assign amp_in[AMP_WIDTH*(i+1)-1:AMP_WIDTH*i]    = amp[i];
         assign wave_type[2*(i+1)-1:2*i]           = wave_type_reg[i];
     end
 
@@ -31,7 +37,7 @@ module synth_test;
     initial begin
         ctl_clk  <= 1'b0;
         ctl_rst  <= 1'b0;
-        aud_freq <= 1'b0;
+        aud_freq <= 1'b1;
         wave_type_reg[0] <= 2'h0;
         wave_type_reg[1] <= 2'h0;
         wave_type_reg[2] <= 2'h0;
@@ -41,6 +47,11 @@ module synth_test;
         freq[1] <= 16'h0;
         freq[2] <= 16'h0;
         freq[3] <= 16'h0;
+
+        amp[0] <= 16'h0;
+        amp[1] <= 16'h0;
+        amp[2] <= 16'h0;
+        amp[3] <= 16'h0;
         #150;
         ctl_rst  <= 1'b1;
         #2000;
@@ -51,21 +62,33 @@ module synth_test;
         wave_type_reg[2] <= 2'h0;
         wave_type_reg[3] <= 2'h0;
 
-        freq[0] <= 16'd4000;
+        // VCO
+        freq[0] <= 16'd8000;
         freq[1] <= 16'd440;
-        freq[2] <= 16'd880;
+        freq[2] <= 16'd8000;
         freq[3] <= 16'd1760;
+
+        // Mixer
+        amp[0] <= 16'h100;
+        amp[1] <= 16'h0;
+        amp[2] <= 16'h100;
+        amp[3] <= 16'h0;
 
         #5000000;
         $finish;
     end
 
+    assign freq_ext = 0;
+    assign amp_ext  = 0;
     synth #(
             .BITWIDTH(BITWIDTH),
             .FIXED_POINT(FIXED_POINT),
+            .FREQ_WIDTH(FREQ_WIDTH),
+            .AMP_WIDTH(AMP_WIDTH),
             .NUM_UNITS(NUM_UNITS)
         ) UUT0 (
             .freq_in(freq_in),
+            .amp_in(amp_in),
             .wave_type(wave_type),
             .aud_freq(aud_freq),
             .ctl_clk(ctl_clk),

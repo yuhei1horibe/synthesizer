@@ -3,7 +3,7 @@
 // Company: 
 // Engineer:       Yuhei Horibe
 // 
-// Create Date:    05/17/2020 10:54:15 AM
+// Create Date:    06/21/2020 11:28:15 AM
 // Design Name:    Synthesizer module
 // Module Name:    aud_mixer
 // Project Name:   Digital Synthesizer
@@ -14,8 +14,7 @@
 // 
 // Dependencies: adder.v, multiplier.v, divider.v, utils.v
 // 
-// Revision: 0.01
-// Revision  0.01 (06/13/2020) - File Created
+// Revision  0.01 (06/21/2020) - File Created
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -44,17 +43,18 @@
 module aud_mixer #
     (
         parameter integer BITWIDTH    = 24,
+        parameter integer AMP_WIDTH   = 16,
         parameter integer FIXED_POINT = 8,
         parameter integer NUM_UNITS   = 128
     )
     (
         input wire  [(BITWIDTH+FIXED_POINT)*NUM_UNITS-1:0] wave_in,
-        input wire  [FIXED_POINT*NUM_UNITS-1:0] amp,
-        input wire                              aud_clk,
-        input wire                              aud_rst,
-        input wire                              ctl_clk,
-        input wire                              ctl_rst,
-        output wire [BITWIDTH-1:0]              wave_out
+        input wire  [AMP_WIDTH*NUM_UNITS-1:0] amp,
+        input wire                           aud_clk,
+        input wire                           aud_rst,
+        input wire                           ctl_clk,
+        input wire                           ctl_rst,
+        output wire [BITWIDTH-1:0]           wave_out
     );
     localparam C_WIDTH    = BITWIDTH+FIXED_POINT;
     localparam IDX_WIDTH  = `CLOG2(NUM_UNITS);
@@ -69,6 +69,7 @@ module aud_mixer #
     reg [1:0]                   state_reg;
     reg [IDX_WIDTH-1:0]         idx_reg;
     reg [C_WIDTH+IDX_WIDTH-1:0] accum;
+    reg [BITWIDTH-1:0]          wave_out_reg;
     wire done_sig;
     wire calc_done;
     wire trig_sig;
@@ -82,9 +83,10 @@ module aud_mixer #
     wire [C_WIDTH-1:0] mul_in_b;
     wire [C_WIDTH-1:0] mul_out;
 
-    wire [BITWIDTH-1:0]  dummy;
-    wire [IDX_WIDTH-1:0] sign_ext;
+    wire [C_WIDTH-AMP_WIDTH-1:0] dummy;
+    wire [IDX_WIDTH-1:0]        sign_ext;
     wire overflow;
+    wire overflow_dummy;
 
     assign dummy = 0;
     for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
@@ -95,7 +97,7 @@ module aud_mixer #
         //assign in_a[i] = input_mux[i].a;
         //assign in_b[i] = input_mux[i].b;
         assign in_a[i] = wave_in [C_WIDTH*(i+1)-1:C_WIDTH*i];
-        assign in_b[i] = { dummy, amp [FIXED_POINT*(i+1)-1:FIXED_POINT*i] };
+        assign in_b[i] = { dummy, amp [AMP_WIDTH*(i+1)-1:AMP_WIDTH*i] };
 
         // Input latch
         //always @(negedge aud_clk) begin
@@ -110,7 +112,7 @@ module aud_mixer #
 
     end
 
-    // Output
+    // Mixing
     always @(posedge ctl_clk) begin
         if (!ctl_rst) begin
             accum <= 0;
@@ -126,13 +128,24 @@ module aud_mixer #
             end
         end
     end
+    //assign wave_out = !overflow ? accum[C_WIDTH-1:FIXED_POINT] :
+    //          accum[C_WIDTH+IDX_WIDTH-1] ? ~MAX_VAL : MAX_VAL;
+
+    // Output
+    always @(posedge aud_clk) begin
+        if (!aud_rst) begin
+            wave_out_reg <= 0;
+        end else begin
+            wave_out_reg <= accum[C_WIDTH-1:FIXED_POINT];
+        end
+    end
+    assign wave_out = wave_out_reg;
+
     // Sign extension
     for (j = 0; j < IDX_WIDTH; j = j+1) begin
         assign sign_ext[j] = mul_out[C_WIDTH-1];
     end
-    assign overflow = accum[C_WIDTH+IDX_WIDTH-1:C_WIDTH] != 0 ? 1'b1 : 1'b0;
-    assign wave_out = !overflow ? accum[C_WIDTH-1:FIXED_POINT] :
-                      accum[C_WIDTH+IDX_WIDTH-1] ? ~MAX_VAL : MAX_VAL;
+    //assign overflow = accum[C_WIDTH+IDX_WIDTH-1:C_WIDTH] != 0 ? 1'b1 : 1'b0;
 
     // Multiplexing
     always @(posedge ctl_clk) begin
@@ -214,6 +227,7 @@ module aud_mixer #
         .reset(ctl_rst),
         .trigger(trig_reg),
         .done(calc_done),
-        .ready(ready_sig)
+        .ready(ready_sig),
+        .overflow(overflow_dummy)
     );
 endmodule
