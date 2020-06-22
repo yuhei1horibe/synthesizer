@@ -409,27 +409,27 @@ module tdm_mul #(
     wire [C_WIDTH-1:0] mul_out;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
-        //reg [C_WIDTH-1:0] a;
-        //reg [C_WIDTH-1:0] b;
+        reg [C_WIDTH-1:0] a;
+        reg [C_WIDTH-1:0] b;
         reg [C_WIDTH-1:0] y;
 
         assign products[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].y;
 
-        //assign in_a[i] = input_mux[i].a;
-        //assign in_b[i] = input_mux[i].b;
-        assign in_a[i] = multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
-        assign in_b[i] = multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
+        assign in_a[i] = input_mux[i].a;
+        assign in_b[i] = input_mux[i].b;
+        //assign in_a[i] = multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //assign in_b[i] = multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
 
         // Input latch
-        //always @(negedge main_clk) begin
-        //    if (!main_rst) begin
-        //        input_mux[i].a <= 0;
-        //        input_mux[i].b <= 0;
-        //    end else begin
-        //        input_mux[i].a <= multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
-        //        input_mux[i].b <= multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
-        //    end
-        //end
+        always @(posedge main_clk) begin
+            if (!main_rst) begin
+                input_mux[i].a <= 0;
+                input_mux[i].b <= 0;
+            end else begin
+                input_mux[i].a <= multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i];
+                input_mux[i].b <= multipliers  [C_WIDTH*(i+1)-1:C_WIDTH*i];
+            end
+        end
 
         // Output
         always @(posedge ctl_clk) begin
@@ -575,29 +575,29 @@ module tdm_div #(
     wire [C_WIDTH-1:0] div_r_out;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: input_mux
-        //reg [C_WIDTH-1:0] a;
-        //reg [C_WIDTH-1:0] b;
+        reg [C_WIDTH-1:0] a;
+        reg [C_WIDTH-1:0] b;
         reg [C_WIDTH-1:0] q;
         reg [C_WIDTH-1:0] r;
 
         assign quotients[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].q;
         assign reminders[C_WIDTH*(i+1)-1:C_WIDTH*i] = input_mux[i].r;
 
-        //assign in_a[i] = input_mux[i].a;
-        //assign in_b[i] = input_mux[i].b;
-        assign in_a[i] = dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
-        assign in_b[i] = divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
+        assign in_a[i] = input_mux[i].a;
+        assign in_b[i] = input_mux[i].b;
+        //assign in_a[i] = dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
+        //assign in_b[i] = divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
 
         // Input latch
-        //always @(negedge main_clk) begin
-        //    if (!main_rst) begin
-        //        input_mux[i].a <= 0;
-        //        input_mux[i].b <= 0;
-        //    end else begin
-        //        input_mux[i].a <= dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
-        //        input_mux[i].b <= divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
-        //    end
-        //end
+        always @(posedge main_clk) begin
+            if (!main_rst) begin
+                input_mux[i].a <= 0;
+                input_mux[i].b <= 0;
+            end else begin
+                input_mux[i].a <= dividends[C_WIDTH*(i+1)-1:C_WIDTH*i];
+                input_mux[i].b <= divisors [C_WIDTH*(i+1)-1:C_WIDTH*i];
+            end
+        end
 
         // Output
         always @(posedge ctl_clk) begin

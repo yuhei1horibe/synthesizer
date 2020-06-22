@@ -41,6 +41,8 @@ module env_gen #
     localparam integer EG_STAT_DECAY   = 3'h2;
     localparam integer EG_STAT_SUSTAIN = 3'h3;
     localparam integer EG_STAT_RELEASE = 3'h4;
+    localparam integer peak_val        = (1 << (2 * EG_WIDTH)) - 1;
+    localparam integer release_val     = (1 << EG_WIDTH) - 1;
 
     genvar i;
 
@@ -63,35 +65,41 @@ module env_gen #
         assign trig_sig    = trigger    [i];
         assign in_use[i]   = used_reg;
 
-        // State machine
+        // State machine and envelope generation
         always @(posedge aud_clk) begin
             if (!aud_rst) begin
                 eg_stat  <= EG_STAT_RESET;
+                count    <= 0;
                 used_reg <= 1'b0;
             end else begin
                 case (eg_stat)
                     EG_STAT_RESET: begin
                         if (trig_sig) begin
-                            eg_stat <= EG_STAT_ATTACK;
+                            eg_stat  <= EG_STAT_ATTACK;
                             used_reg <= 1'b1;
                         end else begin
-                            eg_stat <= EG_STAT_RESET;
+                            eg_stat  <= EG_STAT_RESET;
                             used_reg <= 1'b0;
                         end
+                        count <= 0;
                     end
                     EG_STAT_ATTACK: begin
-                        if ((count + (attack_sig + 1)) >= (1 << (2 * EG_WIDTH) - 1)) begin
+                        if ((count + (attack_sig + 1)) >= peak_val) begin
                             eg_stat <= EG_STAT_DECAY;
+                            count   <= peak_val;
                         end else begin
                             eg_stat <= EG_STAT_ATTACK;
+                            count   <= count + (attack_sig + 1);
                         end
                         used_reg <= 1'b1;
                     end
                     EG_STAT_DECAY: begin
                         if ((count - (decay_sig + 1)) <= (sustain_sig << EG_WIDTH)) begin
                             eg_stat <= EG_STAT_SUSTAIN;
+                            count   <= (sustain_sig << EG_WIDTH);
                         end else begin
                             eg_stat <= EG_STAT_DECAY;
+                            count   <= count - (decay_sig + 1);
                         end
                         used_reg <= 1'b1;
                     end
@@ -104,57 +112,20 @@ module env_gen #
                         used_reg <= 1'b1;
                     end
                     EG_STAT_RELEASE: begin
-                        if ((count - (release_sig + 1)) < (1 << EG_WIDTH)) begin
+                        if ((count - (release_sig + 1)) <= release_val) begin
                             eg_stat  <= EG_STAT_RESET;
+                            count    <= 0;
                             used_reg <= 1'b0;
                         end else begin
                             eg_stat  <= EG_STAT_RELEASE;
+                            count    <= count - (release_sig + 1);
                             used_reg <= 1'b1;
                         end
                     end
                     default: begin
                         eg_stat  <= EG_STAT_RESET;
+                        count    <= 0;
                         used_reg <= 1'b0;
-                    end
-                endcase
-            end
-        end
-
-        // Envelope calculation
-        always @(posedge aud_clk) begin
-            if (!aud_rst) begin
-                count <= 0;
-            end else begin
-                case (eg_stat)
-                    EG_STAT_RESET: begin
-                        count <= 0;
-                    end
-                    EG_STAT_ATTACK: begin
-                        if ((count + (attack_sig + 1)) >= (1 << (2 * EG_WIDTH) - 1)) begin
-                            count <= 1 << (2 * EG_WIDTH) - 1;
-                        end else begin
-                            count <= count + (attack_sig + 1);
-                        end
-                    end
-                    EG_STAT_DECAY: begin
-                        if ((count - (decay_sig + 1)) <= (sustain_sig << EG_WIDTH)) begin
-                            count <= sustain_sig << EG_WIDTH;
-                        end else begin
-                            count <= count - (decay_sig + 1);
-                        end
-                    end
-                    EG_STAT_SUSTAIN: begin
-                        count <= count;
-                    end
-                    EG_STAT_RELEASE: begin
-                        if ((count - (release_sig + 1)) < (1 << EG_WIDTH)) begin
-                            count <= 0;
-                        end else begin
-                            count <= count - (release_sig + 1);
-                        end
-                    end
-                    default: begin
-                        count <= 0;
                     end
                 endcase
             end
