@@ -22,15 +22,15 @@
 // EG (Envelope Generator) module
 module env_gen #
     (
-        parameter integer EG_WIDTH    = 8,
+        parameter integer FIXED_POINT = 8,
         parameter integer NUM_UNITS   = 32
     )
     (
-        input  [EG_WIDTH*NUM_UNITS-1:0] attack_in,  // Should be delta
-        input  [EG_WIDTH*NUM_UNITS-1:0] decay_in,   // Same
-        input  [EG_WIDTH*NUM_UNITS-1:0] sustain_in,
-        input  [EG_WIDTH*NUM_UNITS-1:0] release_in,
-        output [EG_WIDTH*NUM_UNITS-1:0] env_out,
+        input  [FIXED_POINT*NUM_UNITS-1:0] attack_in,  // Should be delta
+        input  [FIXED_POINT*NUM_UNITS-1:0] decay_in,   // Same
+        input  [FIXED_POINT*NUM_UNITS-1:0] sustain_in,
+        input  [FIXED_POINT*NUM_UNITS-1:0] release_in,
+        output [FIXED_POINT*NUM_UNITS-1:0] env_out,
         input  [NUM_UNITS-1:0]          trigger,
         output [NUM_UNITS-1:0]          in_use,
         input                           aud_clk,
@@ -41,27 +41,27 @@ module env_gen #
     localparam integer EG_STAT_DECAY   = 3'h2;
     localparam integer EG_STAT_SUSTAIN = 3'h3;
     localparam integer EG_STAT_RELEASE = 3'h4;
-    localparam integer peak_val        = (1 << (2 * EG_WIDTH)) - 1;
-    localparam integer release_val     = (1 << EG_WIDTH) - 1;
+    localparam integer peak_val        = (1 << (2 * FIXED_POINT)) - 1;
+    localparam integer release_val     = (1 << FIXED_POINT) - 1;
 
     genvar i;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: eg_unit
-        wire [EG_WIDTH-1:0] attack_sig;
-        wire [EG_WIDTH-1:0] decay_sig;
-        wire [EG_WIDTH-1:0] sustain_sig;
-        wire [EG_WIDTH-1:0] release_sig;
-        wire                trig_sig;
+        wire [FIXED_POINT-1:0] attack_sig;
+        wire [FIXED_POINT-1:0] decay_sig;
+        wire [FIXED_POINT-1:0] sustain_sig;
+        wire [FIXED_POINT-1:0] release_sig;
+        wire                   trig_sig;
 
-        reg [2*EG_WIDTH+1:0] count;
-        reg [2:0]            eg_stat;
-        reg                  used_reg;
+        reg [2*FIXED_POINT+1:0] count;
+        reg [2:0]               eg_stat;
+        reg                     used_reg;
 
         // Decode input signals
-        assign attack_sig  = attack_in  [EG_WIDTH*(i+1)-1:EG_WIDTH*i];
-        assign decay_sig   = decay_in   [EG_WIDTH*(i+1)-1:EG_WIDTH*i];
-        assign sustain_sig = sustain_in [EG_WIDTH*(i+1)-1:EG_WIDTH*i];
-        assign release_sig = release_in [EG_WIDTH*(i+1)-1:EG_WIDTH*i];
+        assign attack_sig  = attack_in  [FIXED_POINT*(i+1)-1:FIXED_POINT*i];
+        assign decay_sig   = decay_in   [FIXED_POINT*(i+1)-1:FIXED_POINT*i];
+        assign sustain_sig = sustain_in [FIXED_POINT*(i+1)-1:FIXED_POINT*i];
+        assign release_sig = release_in [FIXED_POINT*(i+1)-1:FIXED_POINT*i];
         assign trig_sig    = trigger    [i];
         assign in_use[i]   = used_reg;
 
@@ -94,9 +94,9 @@ module env_gen #
                         used_reg <= 1'b1;
                     end
                     EG_STAT_DECAY: begin
-                        if ((count - (decay_sig + 1)) <= (sustain_sig << EG_WIDTH)) begin
+                        if ((count - (decay_sig + 1)) <= (sustain_sig << FIXED_POINT)) begin
                             eg_stat <= EG_STAT_SUSTAIN;
-                            count   <= (sustain_sig << EG_WIDTH);
+                            count   <= (sustain_sig << FIXED_POINT);
                         end else begin
                             eg_stat <= EG_STAT_DECAY;
                             count   <= count - (decay_sig + 1);
@@ -130,6 +130,6 @@ module env_gen #
                 endcase
             end
         end
-        assign env_out[EG_WIDTH*(i+1)-1:EG_WIDTH*i] = eg_unit[i].count[2*EG_WIDTH-1:EG_WIDTH];
+        assign env_out[FIXED_POINT*(i+1)-1:FIXED_POINT*i] = eg_unit[i].count[2*FIXED_POINT-1:FIXED_POINT];
     end
 endmodule

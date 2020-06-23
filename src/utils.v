@@ -729,7 +729,7 @@ module reset_gen (
     end
 
     always @(posedge fast_clk) begin
-        if (!fast_clk) begin
+        if (!fast_rst) begin
             hold <= 1;
         end else begin
             if (!slow_clk) begin
