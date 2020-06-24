@@ -3,6 +3,7 @@
     module my_synth_v1_0_S00_AXI #
     (
         // Users to add parameters here
+        parameter integer BITWIDTH              = 24,
         parameter integer NUM_UNITS             = 4,
 
         // User parameters ends
@@ -11,7 +12,7 @@
         // Width of S_AXI data bus
         parameter integer C_S_AXI_DATA_WIDTH    = 32,
         // Width of S_AXI address bus
-        parameter integer C_S_AXI_ADDR_WIDTH    = 6
+        parameter integer C_S_AXI_ADDR_WIDTH    = 9
     )
     (
         // Users to add ports here
@@ -83,8 +84,6 @@
     );
     localparam integer FREQ_WIDTH         = 16;
     localparam integer AMP_WIDTH          = 16;
-    localparam integer NUM_REGS_PER_UNITS = 2;
-    localparam integer BITWIDTH           = 24;
     localparam integer FIXED_POINT        = 8;
 
     // AXI4LITE signals
@@ -105,33 +104,29 @@
     // ADDR_LSB = 2 for 32 bits (n downto 2)
     // ADDR_LSB = 3 for 64 bits (n downto 3)
     localparam integer ADDR_LSB = (C_S_AXI_DATA_WIDTH/32) + 1;
-    //localparam integer OPT_MEM_ADDR_BITS = 3;
-    localparam integer OPT_MEM_ADDR_BITS = 5;
     //----------------------------------------------
     //-- Signals for user logic register space example
     //------------------------------------------------
     wire     slv_reg_rden;
     wire     slv_reg_wren;
-    reg [C_S_AXI_DATA_WIDTH-1:0]     reg_data_out;
     integer  byte_index;
-    reg  aw_en;
+    reg      aw_en;
+    reg [C_S_AXI_DATA_WIDTH-1:0] reg_data_out;
     
     // I/O Connections assignments
+    assign S_AXI_AWREADY  = axi_awready;
+    assign S_AXI_WREADY   = axi_wready;
+    assign S_AXI_BRESP    = axi_bresp;
+    assign S_AXI_BVALID   = axi_bvalid;
+    assign S_AXI_ARREADY  = axi_arready;
+    assign S_AXI_RDATA    = axi_rdata;
+    assign S_AXI_RRESP    = axi_rresp;
+    assign S_AXI_RVALID   = axi_rvalid;
 
-    assign S_AXI_AWREADY    = axi_awready;
-    assign S_AXI_WREADY = axi_wready;
-    assign S_AXI_BRESP  = axi_bresp;
-    assign S_AXI_BVALID = axi_bvalid;
-    assign S_AXI_ARREADY    = axi_arready;
-    assign S_AXI_RDATA  = axi_rdata;
-    assign S_AXI_RRESP  = axi_rresp;
-    assign S_AXI_RVALID = axi_rvalid;
     // Implement axi_awready generation
     // axi_awready is asserted for one S_AXI_ACLK clock cycle when both
     // S_AXI_AWVALID and S_AXI_WVALID are asserted. axi_awready is
     // de-asserted when reset is low.
-
-    genvar j;
 
     always @( posedge S_AXI_ACLK )
     begin
@@ -211,56 +206,11 @@
         end
     end       
 
-    // Implement memory mapped register select and write logic generation
-    // The write data is accepted and written to memory mapped registers when
-    // axi_awready, S_AXI_WVALID, axi_wready and S_AXI_WVALID are asserted. Write strobes are used to
-    // select byte enables of slave registers while writing.
-    // These registers are cleared when reset (active low) is applied.
-    // Slave register write enable is asserted when valid address and data are available
-    // and the slave is ready to accept the write address and write data.
-    assign slv_reg_wren = axi_wready && S_AXI_WVALID && axi_awready && S_AXI_AWVALID;
-
-    // Register file
-    for (j = 0; j < NUM_UNITS; j = j+1) begin: synth_reg
-        reg [C_S_AXI_DATA_WIDTH-1:0] freq_amp_reg;
-        reg [C_S_AXI_DATA_WIDTH-1:0] ctl_reg; // wave_type for now
-        always @( posedge S_AXI_ACLK ) begin
-            if ( S_AXI_ARESETN == 1'b0 ) begin
-                freq_amp_reg <= 0;
-                ctl_reg      <= 0;
-            end else begin
-                if (slv_reg_wren) begin
-                    // Offset0: Frequency and amplitude
-                    if (axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == (NUM_REGS_PER_UNITS * j)) begin
-                        for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
-                            if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-                                // Respective byte enables are asserted as per write strobes 
-                                // Slave register 0
-                                freq_amp_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-                            end  
-                        end
-                    // Offset1: Wave type
-                    end else if (axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == (NUM_REGS_PER_UNITS * j + 1)) begin
-                        for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
-                            if ( S_AXI_WSTRB[byte_index] == 1 ) begin
-                                // Respective byte enables are asserted as per write strobes 
-                                // Slave register 0
-                                ctl_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
-                            end  
-                        end
-                    end
-                end
-                // Read-only registers if exists
-            end
-        end
-    end
-
     // Implement write response logic generation
     // The write response and response valid signals are asserted by the slave 
     // when axi_wready, S_AXI_WVALID, axi_wready and S_AXI_WVALID are asserted.  
     // This marks the acceptance of address and indicates the status of 
     // write transaction.
-
     always @( posedge S_AXI_ACLK )
     begin
       if ( S_AXI_ARESETN == 1'b0 )
@@ -294,7 +244,6 @@
     // de-asserted when reset (active low) is asserted. 
     // The read address is also latched when S_AXI_ARVALID is 
     // asserted. axi_araddr is reset to zero on reset assertion.
-
     always @( posedge S_AXI_ACLK )
     begin
       if ( S_AXI_ARESETN == 1'b0 )
@@ -349,20 +298,94 @@
         end
     end    
 
+    // Implement memory mapped register select and write logic generation
+    // The write data is accepted and written to memory mapped registers when
+    // axi_awready, S_AXI_WVALID, axi_wready and S_AXI_WVALID are asserted. Write strobes are used to
+    // select byte enables of slave registers while writing.
+    // These registers are cleared when reset (active low) is applied.
+    // Slave register write enable is asserted when valid address and data are available
+    // and the slave is ready to accept the write address and write data.
+    localparam integer NUM_REGS_PER_UNITS = 3;
+    `define SYNTH_UNIT_BASE    NUM_REGS_PER_UNITS*j
+    `define SYNTH_FREQ_AND_AMP `SYNTH_UNIT_BASE
+    `define SYNTH_CTL          `SYNTH_UNIT_BASE+1
+    `define SYNTH_VCA_EG       `SYNTH_UNIT_BASE+2
+
+    genvar j;
+
+    assign slv_reg_wren = axi_wready && S_AXI_WVALID && axi_awready && S_AXI_AWVALID;
+
+    // Register file
+    for (j = 0; j < NUM_UNITS; j = j+1) begin: synth_reg
+        // VCO
+        reg [C_S_AXI_DATA_WIDTH-1:0] freq_amp_reg;
+        reg [C_S_AXI_DATA_WIDTH-1:0] ctl_reg; // wave_type and trigger for now
+
+        // VCA (EG)
+        reg [C_S_AXI_DATA_WIDTH-1:0] vca_eg_reg;
+
+        always @( posedge S_AXI_ACLK ) begin
+            if ( S_AXI_ARESETN == 1'b0 ) begin
+                freq_amp_reg <= 0;
+                ctl_reg      <= 0;
+            end else begin
+                if (slv_reg_wren) begin
+                    // Offset0: Frequency and amplitude
+                    case (axi_awaddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB])
+                    `SYNTH_FREQ_AND_AMP: begin
+                        for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
+                            if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+                                // Respective byte enables are asserted as per write strobes 
+                                // Slave register 0
+                                freq_amp_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+                            end  
+                        end
+                    end
+                    // Offset1: Wave type and trigger (TBD)
+                    `SYNTH_CTL: begin
+                        for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
+                            if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+                                // Respective byte enables are asserted as per write strobes 
+                                // Slave register 0
+                                ctl_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+                            end  
+                        end
+                    end
+                    // VCA EG parameters
+                    // Attack
+                    `SYNTH_VCA_EG: begin
+                        for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
+                            if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+                                // Respective byte enables are asserted as per write strobes 
+                                // Slave register 0
+                                vca_eg_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+                            end  
+                        end
+                    end
+                    default: begin
+                    end
+                    endcase
+                end
+                // Read-only registers if exists
+            end
+        end
+    end
+
     // Implement memory mapped register select and read logic generation
     // Slave register read enable is asserted when valid address is available
     // and the slave is ready to accept the read address.
     wire [C_S_AXI_DATA_WIDTH-1:0] data_sel[NUM_UNITS*NUM_REGS_PER_UNITS-1:0];
     assign slv_reg_rden = axi_arready & S_AXI_ARVALID & ~axi_rvalid;
-    for (j = 0; j < NUM_UNITS*NUM_REGS_PER_UNITS; j = j+1) begin: read_unit
-        // TODO: Cleanup
-        assign data_sel[j] = (j % NUM_REGS_PER_UNITS) ? synth_reg[j/NUM_REGS_PER_UNITS].ctl_reg : synth_reg[j/NUM_REGS_PER_UNITS].freq_amp_reg;
+    for (j = 0; j < NUM_UNITS; j = j+1) begin: read_unit
+        assign data_sel[`SYNTH_FREQ_AND_AMP] = synth_reg[j].freq_amp_reg;
+        assign data_sel[`SYNTH_CTL]          = synth_reg[j].ctl_reg;
+        assign data_sel[`SYNTH_VCA_EG]       = synth_reg[j].vca_eg_reg;
     end
 
     // Read data selector
     always @(*) begin
-        if (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] < NUM_UNITS*NUM_REGS_PER_UNITS) begin
-            reg_data_out <= data_sel[axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB]];
+        if (axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB] < NUM_UNITS*NUM_REGS_PER_UNITS) begin
+            reg_data_out <= data_sel[axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB]];
         end else begin
             reg_data_out <= 0;
         end
@@ -388,30 +411,52 @@
     end    
 
     // Add user logic here
-    wire [FREQ_WIDTH*NUM_UNITS-1:0] freq_in;
-    wire [AMP_WIDTH*NUM_UNITS-1:0]  amp_in;
-    wire [2*NUM_UNITS-1:0]          wave_type_in;
-    wire [BITWIDTH-1:0]             wave_out;
+    wire [FREQ_WIDTH*NUM_UNITS-1:0]  freq_in;
+    wire [NUM_UNITS-1:0]             trig_sig;
+    wire [2*NUM_UNITS-1:0]           wave_type_in;
+    wire [FIXED_POINT*NUM_UNITS-1:0] vca_attack_in;
+    wire [FIXED_POINT*NUM_UNITS-1:0] vca_decay_in;
+    wire [FIXED_POINT*NUM_UNITS-1:0] vca_sustain_in;
+    wire [FIXED_POINT*NUM_UNITS-1:0] vca_release_in;
+    wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in;
+    wire [BITWIDTH-1:0]              wave_out;
 
     for (j = 0; j < NUM_UNITS; j = j+1) begin: synth_input
-        assign freq_in[FREQ_WIDTH*(j+1)-1:FREQ_WIDTH*j] = synth_reg[j].freq_amp_reg[FREQ_WIDTH-1:0];
-        assign amp_in[AMP_WIDTH*(j+1)-1:AMP_WIDTH*j]    = synth_reg[j].freq_amp_reg[C_S_AXI_DATA_WIDTH-1:FREQ_WIDTH];
-        assign wave_type_in[2*(j+1)-1:2*j]              = synth_reg[j].ctl_reg[1:0];
-    end
-    synth #(
-            .BITWIDTH(BITWIDTH),
+        assign freq_in[FREQ_WIDTH*(j+1)-1:FREQ_WIDTH*j]          = synth_reg[j].freq_amp_reg[FREQ_WIDTH-1:0];
+        assign amp_in[AMP_WIDTH*(j+1)-1:AMP_WIDTH*j]             = synth_reg[j].freq_amp_reg[C_S_AXI_DATA_WIDTH-1:FREQ_WIDTH];
+        assign wave_type_in[2*(j+1)-1:2*j]                       = synth_reg[j].ctl_reg[1:0];
+        assign trig_sig[j]                                       = synth_reg[j].ctl_reg[2];
+        assign vca_attack_in[FIXED_POINT*(j+1)-1:FIXED_POINT*j]  = synth_reg[j].vca_eg_reg[FIXED_POINT-1:0];
+        assign vca_decay_in[FIXED_POINT*(j+1)-1:FIXED_POINT*j]   = synth_reg[j].vca_eg_reg[2*FIXED_POINT-1:FIXED_POINT];
+        assign vca_sustain_in[FIXED_POINT*(j+1)-1:FIXED_POINT*j] = synth_reg[j].vca_eg_reg[3*FIXED_POINT-1:2*FIXED_POINT];
+        assign vca_release_in[FIXED_POINT*(j+1)-1:FIXED_POINT*j] = synth_reg[j].vca_eg_reg[4*FIXED_POINT-1:3*FIXED_POINT];
+    end                                                                                                     
+    synth #(                                                                                                
+            .BITWIDTH(BITWIDTH),                                                                            
             .FIXED_POINT(FIXED_POINT),
             .FREQ_WIDTH(FREQ_WIDTH),
             .AMP_WIDTH(AMP_WIDTH),
             .NUM_UNITS(NUM_UNITS)
         ) UUT0 (
-            .freq_in(freq_in),
-            .amp_in(amp_in),
-            .wave_type(wave_type_in),
-            .aud_freq(1'b0),
+            // VCO parameters
+            .vco_freq_in    (freq_in),
+            .vco_wave_type  (wave_type_in),
+
+            // VCA (EG) parameters
+            .vca_attack_in  (vca_attack_in),
+            .vca_decay_in   (vca_decay_in),
+            .vca_sustain_in (vca_sustain_in),
+            .vca_release_in (vca_release_in),
+
+            .amp_in         (amp_in),
+
+            .trigger        (trig_sig),
+            .ch_in_use      (in_use),
+            .aud_freq       (1'b0),
+            .wave_out       (wave_out),
+
             .ctl_clk(S_AXI_ACLK),
-            .ctl_rst(S_AXI_ARESETN),
-            .wave_out(wave_out)
+            .ctl_rst(S_AXI_ARESETN)
         );
 
     assign LED_OUT = wave_out[BITWIDTH-1:BITWIDTH-8];

@@ -4,13 +4,14 @@
 	module my_synth_v1_0 #
 	(
 		// Users to add parameters here
+        parameter integer BITWIDTH              = 24,
         parameter integer NUM_UNITS             = 32,
 		// User parameters ends
 		// Do not modify the parameters beyond this line
 
 		// Parameters of Axi Slave Bus Interface S00_AXI
 		parameter integer C_S00_AXI_DATA_WIDTH	= 32,
-		parameter integer C_S00_AXI_ADDR_WIDTH	= 10
+		parameter integer C_S00_AXI_ADDR_WIDTH	= 9
 	)
 	(
 		// Users to add ports here
@@ -44,6 +45,7 @@
 	);
 // Instantiation of Axi Bus Interface S00_AXI
 	my_synth_v1_0_S00_AXI # (
+        .BITWIDTH(BITWIDTH),
         .NUM_UNITS(NUM_UNITS),
 		.C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
 		.C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
