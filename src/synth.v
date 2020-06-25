@@ -32,7 +32,8 @@ module synth #(
         input                             aud_freq, // 0: 48kHz, 1: 96kHz
         input  [NUM_UNITS-1:0]            trigger,
         output [NUM_UNITS-1:0]            ch_in_use,
-        output [BITWIDTH-1:0]             wave_out,
+        output [BITWIDTH-1:0]             wave_out_l,
+        output [BITWIDTH-1:0]             wave_out_r,
 
         // Input for VCO
         input  [FREQ_WIDTH*NUM_UNITS-1:0] vco_freq_in,
@@ -45,7 +46,8 @@ module synth #(
         input  [FIXED_POINT*NUM_UNITS-1:0] vca_release_in,
 
         // Input for mixer
-        input  [AMP_WIDTH*NUM_UNITS-1:0]  amp_in,
+        input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l,
+        input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r,
 
         // Clock and reset
         input  ctl_clk,
@@ -178,14 +180,24 @@ module synth #(
     );
 
     // Audio mixer
-    aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix (
+    aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix_l (
         .wave_in(vca_out),
-        .amp(amp_in),
+        .amp(amp_in_l),
         .aud_clk(aud_clk),
         .aud_rst(aud_rst),
         .ctl_clk(ctl_clk),
         .ctl_rst(ctl_rst),
-        .wave_out(wave_out)
+        .wave_out(wave_out_l)
+    );
+
+    aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix_r (
+        .wave_in(vca_out),
+        .amp(amp_in_r),
+        .aud_clk(aud_clk),
+        .aud_rst(aud_rst),
+        .ctl_clk(ctl_clk),
+        .ctl_rst(ctl_rst),
+        .wave_out(wave_out_r)
     );
 endmodule
 
