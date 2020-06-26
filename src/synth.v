@@ -74,10 +74,11 @@ module synth #(
     wire [C_WIDTH*NUM_UNITS*2-1:0] reminders;
 
     assign sample_rate = aud_freq ? 96000 : 48000;
-    assign conv_rate   = aud_freq ? 100000000/96000 : 100000000/48000;
+    //assign conv_rate   = aud_freq ? 100000000/96000 : 100000000/48000;
+    assign conv_rate   = aud_freq ? 1024 : 2048;
 
     // Audio clock generation
-    clk_div #(.C_WIDTH(C_WIDTH)) U_clkdiv (
+    clk_div #(.C_WIDTH(12)) U_clkdiv (
         .clk_in   (ctl_clk),
         .reset    (ctl_rst),
         .div_rate (conv_rate),
