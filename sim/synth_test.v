@@ -14,7 +14,7 @@ module synth_test;
 
     // VCO
     reg  [FREQ_WIDTH-1:0]  freq         [NUM_UNITS-1:0];
-    reg  [AMP_WIDTH-1:0]   amp          [NUM_UNITS-1:0];
+    reg  [2*AMP_WIDTH-1:0] amp          [NUM_UNITS-1:0];
     reg  [1:0]             wave_type_reg[NUM_UNITS-1:0];
 
     // VCA EG
@@ -26,7 +26,8 @@ module synth_test;
 
     wire  [FREQ_WIDTH*NUM_UNITS-1:0]  freq_in;
     wire  [2*NUM_UNITS-1:0]           wave_type;
-    wire  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in;
+    wire  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l;
+    wire  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r;
 
     wire  [FIXED_POINT*NUM_UNITS-1:0] vca_attack_in;
     wire  [FIXED_POINT*NUM_UNITS-1:0] vca_decay_in;
@@ -35,21 +36,28 @@ module synth_test;
 
     wire  [NUM_UNITS-1:0]            trig_sig;
     wire  [NUM_UNITS-1:0]            in_use;
-    wire  [BITWIDTH-1:0]             wave_out;
 
     wire  [C_WIDTH-FREQ_WIDTH-1:0]   freq_ext;
     wire  [C_WIDTH-AMP_WIDTH-1:0]    amp_ext;
+
+    // I2S interface
+    wire i2s_mclk;
+    wire i2s_bclk;
+    wire i2s_lrck;
+    wire i2s_tx;
+
     genvar i;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin
-        assign freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i] = freq[i];
-        assign wave_type[2*(i+1)-1:2*i]                 = wave_type_reg[i];
+        assign freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i]          = freq[i];
+        assign wave_type[2*(i+1)-1:2*i]                          = wave_type_reg[i];
         assign vca_attack_in[FIXED_POINT*(i+1)-1:FIXED_POINT*i]  = attack_reg[i];
         assign vca_decay_in[FIXED_POINT*(i+1)-1:FIXED_POINT*i]   = decay_reg[i];
         assign vca_sustain_in[FIXED_POINT*(i+1)-1:FIXED_POINT*i] = sustain_reg[i];
         assign vca_release_in[FIXED_POINT*(i+1)-1:FIXED_POINT*i] = release_reg[i];
         assign trig_sig[i] = trig_reg[i];
-        assign amp_in[AMP_WIDTH*(i+1)-1:AMP_WIDTH*i]    = amp[i];
+        assign amp_in_l[AMP_WIDTH*(i+1)-1:AMP_WIDTH*i]           = amp[i][AMP_WIDTH-1:0];
+        assign amp_in_r[AMP_WIDTH*(i+1)-1:AMP_WIDTH*i]           = amp[i][2*AMP_WIDTH-1:AMP_WIDTH];
     end
 
     // Clock
@@ -96,10 +104,10 @@ module synth_test;
         freq[2] <= 16'h0;
         freq[3] <= 16'h0;
 
-        amp[0] <= 16'h0;
-        amp[1] <= 16'h0;
-        amp[2] <= 16'h0;
-        amp[3] <= 16'h0;
+        amp[0] <= 32'h0;
+        amp[1] <= 32'h0;
+        amp[2] <= 32'h0;
+        amp[3] <= 32'h0;
         #150;
         ctl_rst  <= 1'b1;
         #7200;
@@ -137,10 +145,10 @@ module synth_test;
         release_reg[3] <= 8'h10;
 
         // Mixer
-        amp[0] <= 16'h100;
-        amp[1] <= 16'h0;
-        amp[2] <= 16'h100;
-        amp[3] <= 16'h0;
+        amp[0] <= 32'h01000100;
+        amp[1] <= 32'h0;
+        amp[2] <= 32'h01000100;
+        amp[3] <= 32'h0;
 
         #3200;
 
@@ -171,12 +179,17 @@ module synth_test;
             .vca_sustain_in (vca_sustain_in),
             .vca_release_in (vca_release_in),
 
-            .amp_in         (amp_in),
+            .amp_in_l       (amp_in_l),
+            .amp_in_r       (amp_in_r),
 
             .trigger        (trig_sig),
             .ch_in_use      (in_use),
             .aud_freq       (aud_freq),
-            .wave_out       (wave_out),
+
+            .i2s_mclk       (i2s_mclk),
+            .i2s_bclk       (i2s_bclk),
+            .i2s_lrck       (i2s_lrck),
+            .i2s_tx         (i2s_tx),
 
             .ctl_clk        (ctl_clk),
             .ctl_rst        (ctl_rst)

@@ -32,8 +32,6 @@ module synth #(
         input                             aud_freq, // 0: 48kHz, 1: 96kHz
         input  [NUM_UNITS-1:0]            trigger,
         output [NUM_UNITS-1:0]            ch_in_use,
-        output [BITWIDTH-1:0]             wave_out_l,
-        output [BITWIDTH-1:0]             wave_out_r,
 
         // Input for VCO
         input  [FREQ_WIDTH*NUM_UNITS-1:0] vco_freq_in,
@@ -49,6 +47,12 @@ module synth #(
         input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l,
         input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r,
 
+        // I2S interface
+        output i2s_mclk,
+        output i2s_bclk,
+        output i2s_lrck,
+        output i2s_tx,
+
         // Clock and reset
         input  ctl_clk,
         input  ctl_rst
@@ -58,8 +62,6 @@ module synth #(
     wire aud_clk;
     wire aud_rst;
 
-    wire [C_WIDTH-1:0]             sample_rate;
-    wire [C_WIDTH-1:0]             conv_rate;
     wire [C_WIDTH*NUM_UNITS-1:0]   vco_out;
     wire [C_WIDTH*NUM_UNITS-1:0]   vca_out;
 
@@ -73,25 +75,9 @@ module synth #(
     wire [C_WIDTH*NUM_UNITS*2-1:0] quotients;
     wire [C_WIDTH*NUM_UNITS*2-1:0] reminders;
 
-    assign sample_rate = aud_freq ? 96000 : 48000;
-    //assign conv_rate   = aud_freq ? 100000000/96000 : 100000000/48000;
-    assign conv_rate   = aud_freq ? 1024 : 2048;
-
-    // Audio clock generation
-    clk_div #(.C_WIDTH(12)) U_clkdiv (
-        .clk_in   (ctl_clk),
-        .reset    (ctl_rst),
-        .div_rate (conv_rate),
-        .clk_out  (aud_clk)
-    );
-
-    // Reset for audio clock domain
-    reset_gen U_audrst (
-        .fast_clk (ctl_clk),
-        .fast_rst (ctl_rst),
-        .slow_clk (aud_clk),
-        .slow_rst (aud_rst)
-    );
+    // Wave out
+    wire [BITWIDTH-1:0] wave_out_l;
+    wire [BITWIDTH-1:0] wave_out_r;
 
     // TDM for resource reduction
     tdm_mul #(
@@ -169,36 +155,51 @@ module synth #(
 
     // EG (Envelope Generator)
     env_gen #(.FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_vca_eg (
-        .attack_in(vca_attack_in),
-        .decay_in(vca_decay_in),
-        .sustain_in(vca_sustain_in),
-        .release_in(vca_release_in),
-        .env_out(vca_eg_out),
-        .trigger(trigger),
-        .in_use(ch_in_use),
-        .aud_clk(aud_clk),
-        .aud_rst(aud_rst)
+        .attack_in  (vca_attack_in),
+        .decay_in   (vca_decay_in),
+        .sustain_in (vca_sustain_in),
+        .release_in (vca_release_in),
+        .env_out    (vca_eg_out),
+        .trigger    (trigger),
+        .in_use     (ch_in_use),
+        .aud_clk    (aud_clk),
+        .aud_rst    (aud_rst)
     );
 
     // Audio mixer
     aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix_l (
-        .wave_in(vca_out),
-        .amp(amp_in_l),
-        .aud_clk(aud_clk),
-        .aud_rst(aud_rst),
-        .ctl_clk(ctl_clk),
-        .ctl_rst(ctl_rst),
-        .wave_out(wave_out_l)
+        .wave_in  (vca_out),
+        .amp      (amp_in_l),
+        .aud_clk  (aud_clk),
+        .aud_rst  (aud_rst),
+        .ctl_clk  (ctl_clk),
+        .ctl_rst  (ctl_rst),
+        .wave_out (wave_out_l)
     );
 
     aud_mixer #(.BITWIDTH(BITWIDTH), .AMP_WIDTH(AMP_WIDTH), .FIXED_POINT(FIXED_POINT), .NUM_UNITS(NUM_UNITS)) U_mix_r (
-        .wave_in(vca_out),
-        .amp(amp_in_r),
-        .aud_clk(aud_clk),
-        .aud_rst(aud_rst),
-        .ctl_clk(ctl_clk),
-        .ctl_rst(ctl_rst),
-        .wave_out(wave_out_r)
+        .wave_in  (vca_out),
+        .amp      (amp_in_r),
+        .aud_clk  (aud_clk),
+        .aud_rst  (aud_rst),
+        .ctl_clk  (ctl_clk),
+        .ctl_rst  (ctl_rst),
+        .wave_out (wave_out_r)
+    );
+
+    // I2S transmitter
+    i2s_tx_mod #(.BITWIDTH(BITWIDTH)) U_i2s (
+        .wave_in_l (wave_out_l),
+        .wave_in_r (wave_out_r),
+        .ctl_clk   (ctl_clk),
+        .ctl_rst   (ctl_rst),
+        .aud_clk   (aud_clk),
+        .aud_rst   (aud_rst),
+        .aud_freq  (1'b0),
+        .i2s_mclk  (i2s_mclk),
+        .i2s_bclk  (i2s_bclk),
+        .i2s_lrck  (i2s_lrck),
+        .i2s_tx    (i2s_tx)
     );
 endmodule
 

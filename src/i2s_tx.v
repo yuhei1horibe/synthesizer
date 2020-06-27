@@ -18,7 +18,7 @@
    (x <= 65536) ? 16 : \
    -1
 
-// Sign converter
+// I2S transmitter
 module i2s_tx_mod #
     (
         parameter integer BITWIDTH = 24
@@ -28,70 +28,105 @@ module i2s_tx_mod #
         input  [BITWIDTH-1:0] wave_in_r,
         input                 ctl_clk,
         input                 ctl_rst,
-        input                 aud_clk, // This will be used as bclk
-        input                 aud_rst,
+        input                 aud_freq,
+        output                aud_clk,
+        output                aud_rst,
         output                i2s_mclk,
         output                i2s_bclk,
         output                i2s_lrck,
         output                i2s_tx
     );
-    localparam integer MCLK_RATE 4; // 100MHz/4 = 25MHz (24.576MHz + 1% error)
-    wire [C_WIDTH-1:0] negated;
+    localparam integer MCLK_RATE = 4; // 100MHz/4 = 25MHz (24.576MHz + 1% error)
+    localparam integer C_WIDTH = 32;
     wire mclk;
     wire bclk;
-    wire aclk_chg;
+    wire bclk_rst;
+    wire [5:0]  bclk_div_rate;
+    wire [11:0] aud_clk_rate;
 
-    reg [BITWIDTH-1:0] wave_l_reg;
-    reg [BITWIDTH-1:0] wave_r_reg;
-    reg                chg_reg;
+    wire [C_WIDTH-BITWIDTH-1:0]dummy;
+
+    reg [C_WIDTH-1:0] wave_l_reg;
+    reg [C_WIDTH-1:0] wave_r_reg;
+    reg               chg_reg;
+    reg               aclk_chg;
+
+    // Clock divider rate
+    assign aud_clk_rate  = aud_freq ? 1024 : 2048;
+    assign bclk_div_rate = aud_freq ? 16 : 32;
 
     // I2S master clock (25MHz)
-    clk_div #(.C_WIDTH(4)) U_clkdiv (
+    clk_div #(.C_WIDTH(4)) U_mclk (
         .clk_in   (ctl_clk),
         .reset    (ctl_rst),
-        .div_rate (4),
+        .div_rate (4'd4),
         .clk_out  (mclk)
     );
 
     // Bit clock (Should be 64 * aud_clk)
-    clk_div #(.C_WIDTH(6)) U_clkdiv (
+    clk_div #(.C_WIDTH(6)) U_bclk (
         .clk_in   (ctl_clk),
         .reset    (ctl_rst),
-        .div_rate (32),
+        .div_rate (bclk_div_rate),
         .clk_out  (bclk)
     );
-    assign i2s_lrck = ~aud_clk;
-    assign i2s_mclk = ~mclk;
-    assign i2s_bclk = ~bclk;
 
-    // TODO: Add reset generators
+    // Audio clock generation
+    clk_div #(.C_WIDTH(12)) U_clkdiv (
+        .clk_in   (ctl_clk),
+        .reset    (ctl_rst),
+        .div_rate (aud_clk_rate),
+        .clk_out  (aud_clk)
+    );
 
-    always @(negedge bclk) begin
+    // Reset for audio clock domain
+    reset_gen U_audrst (
+        .fast_clk (ctl_clk),
+        .fast_rst (ctl_rst),
+        .slow_clk (aud_clk),
+        .slow_rst (aud_rst)
+    );
+
+    // Reset for bclk domain
+    reset_gen U_bclkrst (
+        .fast_clk (ctl_clk),
+        .fast_rst (ctl_rst),
+        .slow_clk (bclk),
+        .slow_rst (bclk_rst)
+    );
+
+    assign i2s_lrck = aud_clk;
+    assign i2s_mclk = mclk;
+    assign i2s_bclk = bclk;
+    assign dummy    = 0;
+
+    always @(posedge bclk) begin
         if (!aud_rst) begin
-            chg_reg <= 0;
+            chg_reg  <= 0;
+            aclk_chg <= 0;
         end else begin
-            chg_reg <= i2s_lrck;
+            chg_reg  <= i2s_lrck;
+            aclk_chg <= i2s_lrck ^ chg_reg;
         end
     end
-    assign aclk_chg = i2s_lrck ^ chg_reg;
 
     // Serialize
     always @(negedge bclk) begin
-        if (!aud_rst) begin
+        if (!bclk_rst) begin
             wave_l_reg <= 0;
             wave_r_reg <= 0;
         end else begin
             if (aclk_chg && !i2s_lrck) begin
-                wave_l_reg <= wave_in_l;
-                wave_r_reg <= wave_in_r;
+                wave_l_reg <= {wave_in_l, dummy};
+                wave_r_reg <= {wave_in_r, dummy};
             end else begin
-                wave_l_reg <= {wave_l_reg[BITWIDTH-2:1], wave_l_reg[BITWIDTH-1]};
-                wave_r_reg <= {wave_r_reg[BITWIDTH-2:1], wave_r_reg[BITWIDTH-1]};
+                wave_l_reg <= {wave_l_reg[C_WIDTH-2:0], wave_l_reg[C_WIDTH-1]};
+                wave_r_reg <= {wave_r_reg[C_WIDTH-2:0], wave_r_reg[C_WIDTH-1]};
             end
         end
     end
 
     // Serial data output
-    assign i2s_tx = aud_clk ? wave_r_reg[BITWIDTH-1] : wave_l_reg[BITWIDTH-1];
+    assign i2s_tx = aud_clk ? wave_r_reg[C_WIDTH-1] : wave_l_reg[C_WIDTH-1];
     
 endmodule
