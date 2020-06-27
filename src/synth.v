@@ -29,33 +29,33 @@ module synth #(
     )
     (
         // Common I/O
-        input                             aud_freq, // 0: 48kHz, 1: 96kHz
-        input  [NUM_UNITS-1:0]            trigger,
-        output [NUM_UNITS-1:0]            ch_in_use,
+        input  wire                            aud_freq, // 0: 48kHz, 1: 96kHz
+        input  wire [NUM_UNITS-1:0]            trigger,
+        output wire [NUM_UNITS-1:0]            ch_in_use,
 
-        // Input for VCO
-        input  [FREQ_WIDTH*NUM_UNITS-1:0] vco_freq_in,
-        input  [2*NUM_UNITS-1:0]          vco_wave_type,
+        // Inpuwire t for VCO
+        input  wire [FREQ_WIDTH*NUM_UNITS-1:0] vco_freq_in,
+        input  wire [2*NUM_UNITS-1:0]          vco_wave_type,
 
-        // Input for VCA EG
-        input  [FIXED_POINT*NUM_UNITS-1:0] vca_attack_in,
-        input  [FIXED_POINT*NUM_UNITS-1:0] vca_decay_in,
-        input  [FIXED_POINT*NUM_UNITS-1:0] vca_sustain_in,
-        input  [FIXED_POINT*NUM_UNITS-1:0] vca_release_in,
+        // Inpuwire t for VCA EG
+        input  wire [FIXED_POINT*NUM_UNITS-1:0] vca_attack_in,
+        input  wire [FIXED_POINT*NUM_UNITS-1:0] vca_decay_in,
+        input  wire [FIXED_POINT*NUM_UNITS-1:0] vca_sustain_in,
+        input  wire [FIXED_POINT*NUM_UNITS-1:0] vca_release_in,
 
-        // Input for mixer
-        input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l,
-        input  [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r,
+        // Inpuwire t for mixer
+        input  wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l,
+        input  wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r,
 
-        // I2S interface
-        output i2s_mclk,
-        output i2s_bclk,
-        output i2s_lrck,
-        output i2s_tx,
+        // I2S wire interface
+        output wire i2s_mclk,
+        output wire i2s_bclk,
+        output wire i2s_lrck,
+        output wire i2s_tx,
 
-        // Clock and reset
-        input  ctl_clk,
-        input  ctl_rst
+        // Clocwire k and reset
+        input  wire ctl_clk,
+        input  wire ctl_rst
     );
     localparam integer C_WIDTH    = BITWIDTH + FIXED_POINT;
 
@@ -143,8 +143,8 @@ module synth #(
     ) U_vca (
         .wave_in  (vco_out),
         .gain_in  (vca_eg_out),
-        .aud_clk  (aud_clk),
-        .aud_rst  (aud_rst),
+        //.aud_clk  (aud_clk),
+        //.aud_rst  (aud_rst),
         .wave_out (vca_out),
 
         // Internal signals for calculation
@@ -195,7 +195,7 @@ module synth #(
         .ctl_rst   (ctl_rst),
         .aud_clk   (aud_clk),
         .aud_rst   (aud_rst),
-        .aud_freq  (1'b0),
+        .aud_freq  (aud_freq),
         .i2s_mclk  (i2s_mclk),
         .i2s_bclk  (i2s_bclk),
         .i2s_lrck  (i2s_lrck),

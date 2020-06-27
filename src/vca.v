@@ -33,8 +33,8 @@ module vca #
         input  [C_WIDTH*NUM_UNITS-1:0]     wave_in,
         input  [FIXED_POINT*NUM_UNITS-1:0] gain_in,
         output [C_WIDTH*NUM_UNITS-1:0]     wave_out,
-        input                              aud_clk,
-        input                              aud_rst,
+        //input                              aud_clk,
+        //input                              aud_rst,
 
         // Signals for internal calculation
         output [C_WIDTH*NUM_UNITS-1:0]   multiplicands,

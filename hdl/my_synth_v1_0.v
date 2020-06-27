@@ -15,7 +15,14 @@
 	)
 	(
 		// Users to add ports here
+        // LED out for debugging
         output wire [7:0] led_out,
+
+        // I2S interface
+        output wire i2s_mclk,
+        output wire i2s_bclk,
+        output wire i2s_lrck,
+        output wire i2s_tx,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -51,6 +58,10 @@
 		.C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
 	) my_synth_v1_0_S00_AXI_inst (
 	    .LED_OUT(led_out),
+        .i2s_mclk(i2s_mclk),
+        .i2s_bclk(i2s_bclk),
+        .i2s_lrck(i2s_lrck),
+        .i2s_tx(i2s_tx),
 		.S_AXI_ACLK(s00_axi_aclk),
 		.S_AXI_ARESETN(s00_axi_aresetn),
 		.S_AXI_AWADDR(s00_axi_awaddr),

@@ -24,17 +24,17 @@ module i2s_tx_mod #
         parameter integer BITWIDTH = 24
     )
     (
-        input  [BITWIDTH-1:0] wave_in_l,
-        input  [BITWIDTH-1:0] wave_in_r,
-        input                 ctl_clk,
-        input                 ctl_rst,
-        input                 aud_freq,
-        output                aud_clk,
-        output                aud_rst,
-        output                i2s_mclk,
-        output                i2s_bclk,
-        output                i2s_lrck,
-        output                i2s_tx
+        input  wire [BITWIDTH-1:0] wave_in_l,
+        input  wire [BITWIDTH-1:0] wave_in_r,
+        input  wire                ctl_clk,
+        input  wire                ctl_rst,
+        input  wire                aud_freq,
+        output wire                aud_clk,
+        output wire                aud_rst,
+        output wire                i2s_mclk,
+        output wire                i2s_bclk,
+        output wire                i2s_lrck,
+        output wire                i2s_tx
     );
     localparam integer MCLK_RATE = 4; // 100MHz/4 = 25MHz (24.576MHz + 1% error)
     localparam integer C_WIDTH = 32;
@@ -52,8 +52,8 @@ module i2s_tx_mod #
     reg               aclk_chg;
 
     // Clock divider rate
-    assign aud_clk_rate  = aud_freq ? 1024 : 2048;
-    assign bclk_div_rate = aud_freq ? 16 : 32;
+    assign aud_clk_rate  = aud_freq ? 12'd1024 : 12'd2048;
+    assign bclk_div_rate = aud_freq ? 6'd16 : 6'd32;
 
     // I2S master clock (25MHz)
     clk_div #(.C_WIDTH(4)) U_mclk (

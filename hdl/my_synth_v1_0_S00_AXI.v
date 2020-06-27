@@ -35,7 +35,14 @@
     )
     (
         // Users to add ports here
+        // LED out for debugging
         output wire [7:0]LED_OUT,
+
+        // I2S interface
+        output wire i2s_mclk,
+        output wire i2s_bclk,
+        output wire i2s_lrck,
+        output wire i2s_tx,
 
         // User ports ends
         // Do not modify the ports beyond this line
@@ -389,8 +396,6 @@
                             end  
                         end
                     end
-                    default: begin
-                    end
                     endcase
                 end
                 // Read-only registers if exists
@@ -448,8 +453,7 @@
     wire [FIXED_POINT*NUM_UNITS-1:0] vca_release_in;
     wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l;
     wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r;
-    wire [BITWIDTH-1:0]              wave_out_l;
-    wire [BITWIDTH-1:0]              wave_out_r;
+    wire [NUM_UNITS-1:0]             ch_in_use;
 
     for (j = 0; j < NUM_UNITS; j = j+1) begin: synth_input
         assign freq_in[FREQ_WIDTH*(j+1)-1:FREQ_WIDTH*j]          = synth_reg[j].freq_reg[FREQ_WIDTH-1:0];
@@ -462,13 +466,13 @@
         assign amp_in_l[AMP_WIDTH*(j+1)-1:AMP_WIDTH*j]           = synth_reg[j].amp_reg[AMP_WIDTH-1:0];
         assign amp_in_r[AMP_WIDTH*(j+1)-1:AMP_WIDTH*j]           = synth_reg[j].amp_reg[C_S_AXI_DATA_WIDTH-1:AMP_WIDTH];
     end                                                                                                     
-    synth #(                                                                                                
-            .BITWIDTH(BITWIDTH),                                                                            
+    synth #(
+            .BITWIDTH(BITWIDTH),
             .FIXED_POINT(FIXED_POINT),
             .FREQ_WIDTH(FREQ_WIDTH),
             .AMP_WIDTH(AMP_WIDTH),
             .NUM_UNITS(NUM_UNITS)
-        ) UUT0 (
+        ) U_synth (
             // VCO parameters
             .vco_freq_in    (freq_in),
             .vco_wave_type  (wave_type_in),
@@ -484,17 +488,20 @@
             .amp_in_r       (amp_in_r),
 
             .trigger        (trig_sig),
-            .ch_in_use      (in_use),
+            .ch_in_use      (ch_in_use),
             .aud_freq       (1'b0),
-            .wave_out_l     (wave_out_l),
-            .wave_out_r     (wave_out_r),
 
-            .ctl_clk(S_AXI_ACLK),
-            .ctl_rst(S_AXI_ARESETN)
+            // I2S interface
+            .i2s_mclk       (i2s_mclk),
+            .i2s_bclk       (i2s_bclk),
+            .i2s_lrck       (i2s_lrck),
+            .i2s_tx         (i2s_tx),
+
+            .ctl_clk        (S_AXI_ACLK),
+            .ctl_rst        (S_AXI_ARESETN)
         );
 
-    assign LED_OUT[7:4] = wave_out_l[BITWIDTH-1:BITWIDTH-4];
-    assign LED_OUT[3:0] = wave_out_r[BITWIDTH-1:BITWIDTH-4];
+    assign LED_OUT[7:0] = ch_in_use[7:0];
     // User logic ends
 
     endmodule
