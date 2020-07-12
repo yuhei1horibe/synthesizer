@@ -355,7 +355,7 @@
                 ctl_reg      <= 0;
             end else begin
                 if (slv_reg_wren && (axi_awaddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB+OFFSET_BIT] == j)) begin
-                    // Offset0: Frequency and amplitude
+                    // Offset0: Frequency
                     case (axi_awaddr[ADDR_LSB+OFFSET_BIT-1:ADDR_LSB])
                     `SYNTH_FREQ: begin
                         for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin

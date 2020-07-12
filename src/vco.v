@@ -40,9 +40,9 @@ module wave_gen #(
         output [C_WIDTH-1:0] multipliers,
         input  [C_WIDTH-1:0] products
     );
-    // 50% of actual max value
-    localparam integer max_val      = (1 << (C_WIDTH-2))-1;
-    localparam integer max_val_half = (1 << (C_WIDTH-3))-1;
+    // 1/32 of actual max value
+    localparam integer max_val      = (1 << (C_WIDTH-6))-1;
+    localparam integer max_val_half = (1 << (C_WIDTH-7))-1;
     localparam integer neg_max      = ~max_val + 1;
     localparam integer neg_max_half = ~max_val_half + 1;
     localparam integer BITWIDTH     = C_WIDTH - FIXED_POINT;
@@ -99,7 +99,7 @@ module wave_gen #(
     end
 
     // Square wave out
-    assign sqr_out = clk ? max_val : neg_max;
+    assign sqr_out = clk ? max_val_half : neg_max_half;
 
     // Saw wave out
     assign saw_out = saw_reg;
