@@ -22,90 +22,81 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module wave_gen #(
-        parameter integer C_WIDTH     = 32,
-        parameter integer FIXED_POINT = 8
+        parameter integer C_WIDTH       = 32,
+        parameter integer FIXED_POINT   = 8,
+        parameter integer MAX_POWER_IDX = 27,
+        parameter integer FREQ_WIDTH    = 16
     )
     (
         input                clk_in,
         input                reset,
         input  [1:0]         wave_type,
-        input  [C_WIDTH-1:0] div_rate,
-        output [C_WIDTH-1:0] wave_out,
-
-        // Signals for internal calculation
-        output [C_WIDTH-1:0] dividends,
-        output [C_WIDTH-1:0] divisors,
-        input  [C_WIDTH-1:0] quotients,
-        output [C_WIDTH-1:0] multiplicands,
-        output [C_WIDTH-1:0] multipliers,
-        input  [C_WIDTH-1:0] products
+        input  [C_WIDTH-1:0] gradient,
+        output [C_WIDTH-1:0] wave_out
     );
-    // 1/32 of actual max value
-    localparam integer max_val      = (1 << (C_WIDTH-6))-1;
-    localparam integer max_val_half = (1 << (C_WIDTH-7))-1;
+    // Define max
+    localparam integer max_val      = (1 << (MAX_POWER_IDX))-1;
+    localparam integer max_val_half = (1 << (MAX_POWER_IDX-1))-1;
+    localparam integer max_val_qtr  = (1 << (MAX_POWER_IDX-2))-1;
     localparam integer neg_max      = ~max_val + 1;
     localparam integer neg_max_half = ~max_val_half + 1;
+    localparam integer neg_max_qtr  = ~max_val_qtr + 1;
+    localparam integer max_val_x3   = (1 << (MAX_POWER_IDX-1)) * 3 - 1;
     localparam integer BITWIDTH     = C_WIDTH - FIXED_POINT;
-    reg [C_WIDTH-1:0] count;
-    reg [C_WIDTH-1:0] saw_reg;
-    reg [C_WIDTH-1:0] tri_reg;
-    reg               clk;
+
+    localparam integer SHIFT_AMT    = MAX_POWER_IDX - (C_WIDTH - FREQ_WIDTH);
+    reg [C_WIDTH-1:0] phase_reg;
 
     wire [C_WIDTH-1:0] sqr_out;
     wire [C_WIDTH-1:0] saw_out;
     wire [C_WIDTH-1:0] tri_out;
 
-    wire  [C_WIDTH-1:0] div_rate_1;
-    wire  [FIXED_POINT-1:0] fraction;
-    wire overflow;
+    // Triangle wave calculation
+    wire [C_WIDTH-1:0] tri_first;
+    wire [C_WIDTH-1:0] tri_latter;
 
-    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub (
-        .a(div_rate),
-        .b(1 << FIXED_POINT),
-        .y({overflow, div_rate_1}),
-        .sub(1'b1)
-    );
+    wire [C_WIDTH-1:0] grad;
 
-    // Calculation
-    assign dividends     = max_val << 1;
-    assign divisors      = {fraction, div_rate_1[C_WIDTH-1:FIXED_POINT]};
-    assign multiplicands = {count[BITWIDTH-1:0], fraction};
-    assign multipliers   = quotients;
-    assign fraction      = 0;
-
+    assign grad = gradient << SHIFT_AMT;
     always @(posedge clk_in) begin
-        if (!reset) begin
-            count   <= 1;
-            saw_reg <= neg_max;
-            tri_reg <= neg_max;
-            clk     <= 0;
+        if (!reset || (grad == 0)) begin
+            phase_reg <= 0;
         end else begin
-            if (count < (div_rate >> FIXED_POINT)) begin
-                count   <= count+1;
-                saw_reg <= neg_max + products[C_WIDTH-1:0];
-                clk     <= count > ((div_rate >> (1 + FIXED_POINT)) - 1);
-                if (count > ((div_rate >> (1 + FIXED_POINT)) - 1)) begin
-                    tri_reg <= (max_val + max_val_half) - products[C_WIDTH-1:0];
-                end else begin
-                    tri_reg <= neg_max_half + products[C_WIDTH-1:0];
-                end
+            if ((phase_reg + grad) >= max_val) begin
+                phase_reg <= 0;
             end else begin
-                clk     <= 0;
-                count   <= 1;
-                saw_reg <= neg_max;
-                tri_reg <= neg_max_half;
+                phase_reg <= phase_reg + grad;
             end
         end
     end
 
+    // Saw wave calculation (2X - b)
+    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub_saw (
+        .a(phase_reg),
+        .b(max_val_half),
+        .y(saw_out),
+        .sub(1'b1)
+    );
+
     // Square wave out
-    assign sqr_out = clk ? max_val_half : neg_max_half;
+    assign sqr_out = phase_reg[MAX_POWER_IDX-1] ? max_val_qtr : neg_max_qtr;
 
-    // Saw wave out
-    assign saw_out = saw_reg;
+    // Triangle calculation (first half: 4X - b)
+    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub_tri1 (
+        .a({phase_reg[C_WIDTH-2:0], 1'b0}), // phase_reg * 2
+        .b(max_val_half),
+        .y(tri_first),
+        .sub(1'b1)
+    );
 
-    // Triangle wave out
-    assign tri_out = tri_reg << 1;
+    // Latetr half: -4X + 3b
+    subtractor #(.C_WIDTH(C_WIDTH), .USE_CLA(0)) U_sub_tri2 (
+        .a(max_val_x3),
+        .b({phase_reg[C_WIDTH-2:0], 1'b0}),
+        .y(tri_latter),
+        .sub(1'b1)
+    );
+    assign tri_out = phase_reg[MAX_POWER_IDX-1] ? tri_latter : tri_first;
 
     // Wave output
     assign wave_out = wave_type[1] ?
@@ -138,13 +129,11 @@ module vco #
         //input                             ctl_rst,
 
         // Signals for internal calculation
-        output [C_WIDTH*NUM_UNITS*2-1:0] dividends,
-        output [C_WIDTH*NUM_UNITS*2-1:0] divisors,
-        input  [C_WIDTH*NUM_UNITS*2-1:0] quotients,
-        output [C_WIDTH*NUM_UNITS-1:0]   multiplicands,
-        output [C_WIDTH*NUM_UNITS-1:0]   multipliers,
-        input  [C_WIDTH*NUM_UNITS-1:0]   products
+        output [C_WIDTH*NUM_UNITS-1:0] dividends,
+        output [C_WIDTH*NUM_UNITS-1:0] divisors,
+        input  [C_WIDTH*NUM_UNITS-1:0] quotients
     );
+    localparam integer MAX_POWER_IDX = 27;
 
     wire [BITWIDTH-1:0]           sample_rate;
     wire [C_WIDTH-FREQ_WIDTH-1:0] freq_dummy;
@@ -156,23 +145,17 @@ module vco #
     assign fraction    = 0;
 
     for (i = 0; i < NUM_UNITS; i = i+1) begin: gen_units
-        // Frequency ratio calculation
-        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = {sample_rate[BITWIDTH-1:0], fraction};
-        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {freq_dummy, freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i]};
+        // (freq_in << 16) / sample_rate
+        assign dividends[C_WIDTH*(i+1)-1:C_WIDTH*i] = {freq_in[FREQ_WIDTH*(i+1)-1:FREQ_WIDTH*i], freq_dummy};
+        assign divisors[C_WIDTH*(i+1)-1:C_WIDTH*i]  = {fraction[FIXED_POINT-1:0], sample_rate[BITWIDTH-1:0]};
 
         // Wave generator
-        wave_gen #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT)) U_gen (
+        wave_gen #(.C_WIDTH(C_WIDTH), .FIXED_POINT(FIXED_POINT), .MAX_POWER_IDX(MAX_POWER_IDX), .FREQ_WIDTH(FREQ_WIDTH)) U_gen (
             .clk_in(aud_clk),
             .reset(aud_rst),
             .wave_type(wave_type[2*(i+1)-1:2*i]),
-            .div_rate(quotients[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .wave_out(wave_out[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .dividends(dividends[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
-            .divisors(divisors[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
-            .quotients(quotients[C_WIDTH*(i+1+NUM_UNITS)-1:C_WIDTH*(i+NUM_UNITS)]),
-            .multiplicands(multiplicands[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .multipliers(multipliers[C_WIDTH*(i+1)-1:C_WIDTH*i]),
-            .products(products[C_WIDTH*(i+1)-1:C_WIDTH*i])
+            .gradient(quotients[C_WIDTH*(i+1)-1:C_WIDTH*i]),
+            .wave_out(wave_out[C_WIDTH*(i+1)-1:C_WIDTH*i])
         );
     end
 endmodule

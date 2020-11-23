@@ -62,18 +62,18 @@ module synth #(
     wire aud_clk;
     wire aud_rst;
 
-    wire [C_WIDTH*NUM_UNITS-1:0]   vco_out;
-    wire [C_WIDTH*NUM_UNITS-1:0]   vca_out;
+    wire [C_WIDTH*NUM_UNITS-1:0] vco_out;
+    wire [C_WIDTH*NUM_UNITS-1:0] vca_out;
 
     wire [FIXED_POINT*NUM_UNITS-1:0] vca_eg_out;
 
-    wire [C_WIDTH*NUM_UNITS*2-1:0] multiplicands;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] multipliers;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] products;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] dividends;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] divisors;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] quotients;
-    wire [C_WIDTH*NUM_UNITS*2-1:0] reminders;
+    wire [C_WIDTH*NUM_UNITS-1:0] multiplicands;
+    wire [C_WIDTH*NUM_UNITS-1:0] multipliers;
+    wire [C_WIDTH*NUM_UNITS-1:0] products;
+    wire [C_WIDTH*NUM_UNITS-1:0] dividends;
+    wire [C_WIDTH*NUM_UNITS-1:0] divisors;
+    wire [C_WIDTH*NUM_UNITS-1:0] quotients;
+    wire [C_WIDTH*NUM_UNITS-1:0] reminders;
 
     // Wave out
     wire [BITWIDTH-1:0] wave_out_l;
@@ -84,7 +84,7 @@ module synth #(
         .C_WIDTH     (C_WIDTH),
         .FIXED_POINT (FIXED_POINT),
         .MUL_TYPE    (3),
-        .NUM_UNITS   (2*NUM_UNITS)
+        .NUM_UNITS   (NUM_UNITS)
     ) U_mul (
         .multiplicands (multiplicands),
         .multipliers   (multipliers),
@@ -98,7 +98,7 @@ module synth #(
     tdm_div #(
         .C_WIDTH   (C_WIDTH),
         .DIV_TYPE  (3),
-        .NUM_UNITS (2*NUM_UNITS)
+        .NUM_UNITS (NUM_UNITS)
     ) U_div (
         .dividends (dividends),
         .divisors  (divisors),
@@ -127,9 +127,6 @@ module synth #(
         .wave_out  (vco_out),
 
         // Internal signals for calculation
-        .multiplicands (multiplicands[C_WIDTH*NUM_UNITS-1:0]),
-        .multipliers   (multipliers[C_WIDTH*NUM_UNITS-1:0]),
-        .products      (products[C_WIDTH*NUM_UNITS-1:0]),
         .dividends     (dividends),
         .divisors      (divisors),
         .quotients     (quotients)
@@ -148,9 +145,9 @@ module synth #(
         .wave_out (vca_out),
 
         // Internal signals for calculation
-        .multiplicands (multiplicands[C_WIDTH*2*NUM_UNITS-1:C_WIDTH*NUM_UNITS]),
-        .multipliers   (multipliers[C_WIDTH*2*NUM_UNITS-1:C_WIDTH*NUM_UNITS]),
-        .products      (products[C_WIDTH*2*NUM_UNITS-1:C_WIDTH*NUM_UNITS])
+        .multiplicands (multiplicands[C_WIDTH*NUM_UNITS-1:0]),
+        .multipliers   (multipliers[C_WIDTH*NUM_UNITS-1:0]),
+        .products      (products[C_WIDTH*NUM_UNITS-1:0])
     );
 
     // EG (Envelope Generator)

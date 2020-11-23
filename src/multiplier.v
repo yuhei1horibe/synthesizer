@@ -372,7 +372,7 @@ module radix4_partial_multiplier #
     (
         parameter integer C_WIDTH    = 32,
         parameter integer USE_CLA    = 0,
-        parameter integer NUM_ADDER  = 4
+        parameter integer NUM_ADDER  = 2
     )
     (
         input wire  [C_WIDTH-1:0]             a,
@@ -443,7 +443,7 @@ module radix_multiplier #
         output wire done,
         input wire  reset
     );
-    localparam NUM_ADDER    = 4;
+    localparam NUM_ADDER    = 2;
 
     localparam MUL_ST_RESET = 2'h0;
     localparam MUL_ST_CAL   = 2'h1;
