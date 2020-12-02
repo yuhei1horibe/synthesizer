@@ -23,7 +23,7 @@
     (
         // Users to add parameters here
         parameter integer BITWIDTH              = 24,
-        parameter integer NUM_UNITS             = 4,
+        parameter integer NUM_UNITS             = 32,
 
         // User parameters ends
         // Do not modify the parameters beyond this line
@@ -31,7 +31,7 @@
         // Width of S_AXI data bus
         parameter integer C_S_AXI_DATA_WIDTH    = 32,
         // Width of S_AXI address bus
-        parameter integer C_S_AXI_ADDR_WIDTH    = 9
+        parameter integer C_S_AXI_ADDR_WIDTH    = 10
     )
     (
         // Users to add ports here
@@ -403,10 +403,50 @@
         end
     end
 
+    // Common register (Sampling frequency, and unit free signals)
+    localparam integer NUM_COMMON_REGS    = 2;
+    //localparam integer COMMON_REG_LSB     = ADDR_LSB + OFFSET_BIT + `CLOG2(NUM_UNITS); // Doesn't work for some reason...
+    localparam integer COMMON_REG_LSB     = 9;
+    //localparam integer COMMON_REG_OFFSET  = `CLOG2(NUM_COMMON_REGS);
+    
+    wire [NUM_UNITS-1:0]             ch_in_use;
+
+    // Register offsets
+    `define AUD_CONF_OFF  0
+    `define UNIT_FREE_OFF 1
+
+    reg [C_S_AXI_DATA_WIDTH-1:0] aud_conf_reg;
+    reg [C_S_AXI_DATA_WIDTH-1:0] unit_free_reg;
+    always @( posedge S_AXI_ACLK ) begin
+        if ( S_AXI_ARESETN == 1'b0 ) begin
+            aud_conf_reg  <= 0;
+            unit_free_reg <= 0;
+        end else begin
+            if (slv_reg_wren && (axi_awaddr[COMMON_REG_LSB] == 1'b1)) begin
+                // Offset0: Sampling frequency
+                case (axi_awaddr[COMMON_REG_LSB-1:ADDR_LSB])
+                `AUD_CONF_OFF: begin
+                    for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 ) begin
+                        if ( S_AXI_WSTRB[byte_index] == 1 ) begin
+                            // Respective byte enables are asserted as per write strobes 
+                            // Slave register 0
+                            aud_conf_reg[(byte_index*8) +: 8] <= S_AXI_WDATA[(byte_index*8) +: 8];
+                        end  
+                    end
+                end
+                default:
+                    aud_conf_reg <= aud_conf_reg;
+                endcase
+            end
+            // Read-only registers if exists
+            unit_free_reg <= ch_in_use;
+        end
+    end
+
     // Implement memory mapped register select and read logic generation
     // Slave register read enable is asserted when valid address is available
     // and the slave is ready to accept the read address.
-    wire [C_S_AXI_DATA_WIDTH-1:0] data_sel[NUM_UNITS*NUM_REGS_PER_UNITS-1:0];
+    wire [C_S_AXI_DATA_WIDTH-1:0] data_sel[`CLOG2(NUM_UNITS*NUM_REGS_PER_UNITS)-1:0];
     assign slv_reg_rden = axi_arready & S_AXI_ARVALID & ~axi_rvalid;
     for (j = 0; j < NUM_UNITS; j = j+1) begin: read_unit
         assign data_sel[j*NUM_REGS_PER_UNITS+`SYNTH_FREQ]   = synth_reg[j].freq_reg;
@@ -417,10 +457,24 @@
 
     // Read data selector
     always @(*) begin
-        if (axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB] < NUM_UNITS*NUM_REGS_PER_UNITS) begin
-            reg_data_out <= data_sel[axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB]];
+        // Per unit config
+        //if (axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB] < NUM_UNITS*NUM_REGS_PER_UNITS) begin
+        if (!axi_araddr[COMMON_REG_LSB]) begin
+            //reg_data_out <= data_sel[axi_araddr[C_S_AXI_ADDR_WIDTH-1:ADDR_LSB]];
+            reg_data_out <= data_sel[axi_araddr[COMMON_REG_LSB-1:ADDR_LSB]];
+        // Common registers
         end else begin
-            reg_data_out <= 0;
+            case (axi_araddr[COMMON_REG_LSB-1:ADDR_LSB])
+            `AUD_CONF_OFF: begin
+                reg_data_out <= aud_conf_reg;
+            end
+            `UNIT_FREE_OFF: begin
+                reg_data_out <= unit_free_reg;
+            end
+            default: begin
+                reg_data_out <= 0;
+            end
+            endcase
         end
     end
 
@@ -453,7 +507,6 @@
     wire [FIXED_POINT*NUM_UNITS-1:0] vca_release_in;
     wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_l;
     wire [AMP_WIDTH*NUM_UNITS-1:0]   amp_in_r;
-    wire [NUM_UNITS-1:0]             ch_in_use;
 
     for (j = 0; j < NUM_UNITS; j = j+1) begin: synth_input
         assign freq_in[FREQ_WIDTH*(j+1)-1:FREQ_WIDTH*j]          = synth_reg[j].freq_reg[FREQ_WIDTH-1:0];
@@ -489,7 +542,7 @@
 
             .trigger        (trig_sig),
             .ch_in_use      (ch_in_use),
-            .aud_freq       (1'b0),
+            .aud_freq       (aud_conf_reg[0]),
 
             // I2S interface
             .i2s_mclk       (i2s_mclk),
