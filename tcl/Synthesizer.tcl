@@ -23,8 +23,8 @@
 # 2. The following source(s) files that were local or imported into the original project.
 #    (Please see the '$orig_proj_dir' and '$origin_dir' variable setting below at the start of the script)
 #
-#    "../Synthesizer/Synthesizer.srcs/sources_1/bd/synthesizer_bd/hdl/synthesizer_bd_wrapper.v"
-#    "../Synthesizer/Synthesizer.srcs/constrs_1/new/synth_io.xdc"
+#    "../Synthesizer/proj_src/hdl/synthesizer_bd_wrapper.v"
+#    "../Synthesizer/proj_src/new/synth_io.xdc"
 #
 # 3. The following remote source files that were added to the original project:-
 #
@@ -178,7 +178,7 @@ update_ip_catalog -rebuild
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- [file normalize "${origin_dir}/../Synthesizer/Synthesizer.srcs/sources_1/bd/synthesizer_bd/hdl/synthesizer_bd_wrapper.v" ]\
+ [file normalize "${origin_dir}/../proj_src/hdl/synthesizer_bd_wrapper.v" ]\
 ]
 set imported_files [import_files -fileset sources_1 $files]
 
@@ -225,7 +225,7 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
-set file "[file normalize "$origin_dir/../Synthesizer/Synthesizer.srcs/constrs_1/new/synth_io.xdc"]"
+set file "[file normalize "$origin_dir/../proj_src/new/synth_io.xdc"]"
 set file_imported [import_files -fileset constrs_1 [list $file]]
 set file "new/synth_io.xdc"
 set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
